@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Livro de Receitas</title>
+<meta name="theme-color" content="#1D9E75">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-primary: #ffffff; --bg-secondary: #f5f5f4; --bg-tertiary: #fafaf9;
+    --text-primary: #1c1c1b; --text-secondary: #6b6b69;
+    --border-light: rgba(0,0,0,0.09); --border-mid: rgba(0,0,0,0.17);
+    --green: #1D9E75; --green-light: #E1F5EE; --green-dark: #0F6E56;
+    --amber: #BA7517; --amber-light: #FAEEDA;
+    --purple: #534AB7; --purple-light: #EEEDFE;
+    --radius-md: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1c; --bg-secondary: #2a2a28; --bg-tertiary: #141413;
+      --text-primary: #f0ede8; --text-secondary: #9a9893;
+      --border-light: rgba(255,255,255,0.09); --border-mid: rgba(255,255,255,0.17);
+      --green-light: #063d2c; --green-dark: #5dcaa5;
+      --amber-light: #3d2800; --amber: #EF9F27;
+      --purple-light: #1a1840; --purple: #AFA9EC;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-tertiary); color: var(--text-primary); min-height: 100vh; }
+  .app { max-width: 980px; margin: 0 auto; padding: 2rem 1.25rem 6rem; }
+  header { margin-bottom: 1.25rem; }
+  header h1 { font-size: 26px; font-weight: 600; }
+  header p { font-size: 14px; color: var(--text-secondary); margin-top: 5px; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+  .controls { display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+  .search-wrap { flex: 1; min-width: 200px; position: relative; }
+  .search-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--text-secondary); pointer-events: none; }
+  .search-wrap input { width: 100%; padding: 9px 12px 9px 34px; border-radius: var(--radius-md); border: 0.5px solid var(--border-mid); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; outline: none; }
+  .search-wrap input:focus { border-color: var(--green); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab { padding: 7px 15px; border-radius: 20px; border: 0.5px solid var(--border-mid); background: var(--bg-primary); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all 0.15s; user-select: none; }
+  .tab:hover { border-color: var(--green); color: var(--green); }
+  .tab.active { background: var(--green); border-color: var(--green); color: white; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .card { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border-light); padding: 1.1rem 1.25rem; cursor: pointer; transition: border-color 0.15s, transform 0.1s; display: flex; flex-direction: column; }
+  .card:hover { border-color: var(--border-mid); transform: translateY(-1px); }
+  .card-emoji { font-size: 28px; margin-bottom: 10px; }
+  .card h3 { font-size: 15px; font-weight: 500; margin-bottom: 5px; }
+  .card p { font-size: 13px; color: var(--text-secondary); line-height: 1.45; margin-bottom: 12px; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-meta { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 10px; font-weight: 500; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .badge-cat-molhos { background: var(--amber-light); color: var(--amber); }
+  .badge-cat-chefs { background: var(--purple-light); color: var(--purple); }
+  .badge-cat-default { background: var(--green-light); color: var(--green-dark); }
+  .badge-time { background: var(--bg-secondary); color: var(--text-secondary); }
+  .badge-added { background: var(--green-light); color: var(--green-dark); margin-left: auto; }
+  .badge-mother { background: var(--amber-light); color: var(--amber); font-size: 10px; padding: 2px 7px; }
+  .badge-chef-tag { background: var(--purple-light); color: var(--purple); font-size: 10px; padding: 2px 7px; }
+  .badge-custom { background: var(--green-light); color: var(--green-dark); font-size: 10px; padding: 2px 7px; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border-light); width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 1.75rem; }
+  .modal-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+  .modal-emoji { font-size: 38px; margin-bottom: 8px; }
+  .modal h2 { font-size: 20px; font-weight: 500; }
+  .modal-badges { display: flex; gap: 7px; margin-top: 7px; flex-wrap: wrap; }
+  .close-btn { background: none; border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); cursor: pointer; font-size: 18px; color: var(--text-secondary); padding: 5px 8px; line-height: 1; flex-shrink: 0; }
+  .close-btn:hover { background: var(--bg-secondary); }
+  .modal-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1.5rem; }
+  .modal-note { font-size: 13px; color: var(--amber); background: var(--amber-light); border-radius: var(--radius-md); padding: 8px 12px; margin-bottom: 1.25rem; }
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; }
+  .ing-list { list-style: none; margin-bottom: 1.5rem; }
+  .ing-list li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid var(--border-light); font-size: 14px; }
+  .ing-box { width: 18px; height: 18px; border-radius: 4px; border: 0.5px solid var(--border-mid); background: var(--bg-secondary); cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.12s; }
+  .ing-box.on { background: var(--green); border-color: var(--green); }
+  .ing-box.on::after { content: '✓'; color: white; font-size: 11px; }
+  .ing-text.done { text-decoration: line-through; opacity: 0.45; }
+  .steps-list { list-style: none; counter-reset: steps; margin-bottom: 1.5rem; }
+  .steps-list li { counter-increment: steps; padding: 9px 0 9px 38px; position: relative; font-size: 14px; line-height: 1.55; border-bottom: 0.5px solid var(--border-light); }
+  .steps-list li::before { content: counter(steps); position: absolute; left: 0; top: 9px; width: 23px; height: 23px; background: var(--green-light); color: var(--green-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .action-row { display: flex; gap: 10px; margin-top: 1.5rem; flex-wrap: wrap; }
+  .btn-green { padding: 9px 18px; background: var(--green); color: white; border: none; border-radius: var(--radius-md); font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-green:hover { opacity: 0.88; }
+  .btn-outline { padding: 9px 18px; background: var(--bg-secondary); color: var(--text-primary); border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .btn-outline:hover { background: var(--bg-primary); }
+  .icon-btn { background: var(--bg-secondary); border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); flex-shrink: 0; font-size: 15px; }
+  .icon-btn:hover { border-color: var(--green); color: var(--green); }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field textarea { width: 100%; padding: 9px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border-mid); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; font-family: inherit; outline: none; resize: vertical; }
+  .field input:focus, .field textarea:focus { border-color: var(--green); }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .hint { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+  .cart-fab { position: fixed; bottom: 1.75rem; right: 1.75rem; background: var(--green); color: white; border-radius: 28px; padding: 12px 20px; display: none; align-items: center; gap: 9px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: 0 4px 18px rgba(0,0,0,0.18); z-index: 100; border: none; transition: transform 0.1s; }
+  .cart-fab:hover { transform: scale(1.03); }
+  .cart-fab.show { display: flex; }
+  .cart-bubble { background: white; color: var(--green-dark); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .sl-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border-light); font-size: 14px; }
+  .sl-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
+  .sl-item label { flex: 1; cursor: pointer; }
+  .sl-from { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+  .empty { text-align: center; padding: 4rem 1rem; color: var(--text-secondary); grid-column: 1 / -1; }
+  .empty i { font-size: 40px; display: block; margin-bottom: 10px; opacity: 0.35; }
+  #installBtn { display: none; }
+  @media (max-width: 500px) { .app { padding: 1.25rem 1rem 5rem; } header h1 { font-size: 20px; } .modal { padding: 1.25rem; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🍳 Meu livro de receitas</h1>
+    <p>Selecione receitas para montar sua lista de compras automaticamente</p>
+  </header>
+
+  <div class="toolbar">
+    <button class="btn-outline" onclick="openForm()"><i class="ti ti-plus"></i> Nova receita</button>
+    <button class="icon-btn" title="Exportar minhas receitas" onclick="exportRecipes()"><i class="ti ti-download"></i></button>
+    <button class="icon-btn" title="Importar receitas" onclick="document.getElementById('importFile').click()"><i class="ti ti-upload"></i></button>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importRecipes(event)">
+    <button class="btn-outline" id="installBtn" onclick="installApp()"><i class="ti ti-device-mobile-plus"></i> Instalar app</button>
+  </div>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <i class="ti ti-search"></i>
+      <input type="text" id="search" placeholder="Buscar receita..." oninput="render()">
+    </div>
+    <div class="tabs" id="tabs"></div>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<button class="cart-fab" id="cartFab" onclick="openCart()">
+  <i class="ti ti-shopping-cart"></i>
+  Lista de compras
+  <span class="cart-bubble" id="cartCount">0</span>
+</button>
+
+<div class="overlay" id="recipeOverlay">
+  <div class="modal" id="recipeContent"></div>
+</div>
+
+<div class="overlay" id="cartOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-emoji">🛒</div>
+        <h2>Lista de compras</h2>
+      </div>
+      <button class="close-btn" onclick="closeCart()"><i class="ti ti-x"></i></button>
+    </div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem">Ingredientes consolidados de todas as receitas selecionadas. Marque o que você já tem em casa.</p>
+    <div class="section-label">Ingredientes</div>
+    <div id="shoppingList"></div>
+    <div class="action-row">
+      <button class="btn-green" onclick="copyList()"><i class="ti ti-copy"></i> Copiar lista</button>
+      <button class="btn-outline" onclick="clearCart()"><i class="ti ti-trash"></i> Limpar seleção</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="formOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-emoji">📝</div>
+        <h2>Nova receita</h2>
+      </div>
+      <button class="close-btn" onclick="closeForm()"><i class="ti ti-x"></i></button>
+    </div>
+    <form id="recipeForm" onsubmit="return saveRecipeForm(event)">
+      <div class="field-row">
+        <div class="field" style="flex:0 0 80px">
+          <label for="f-emoji">Emoji</label>
+          <input type="text" id="f-emoji" maxlength="4" placeholder="🍽️">
+        </div>
+        <div class="field">
+          <label for="f-name">Nome*</label>
+          <input type="text" id="f-name" required>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="f-category">Categoria</label>
+          <input type="text" id="f-category" list="categoryList" placeholder="Minhas receitas">
+          <datalist id="categoryList"></datalist>
+        </div>
+        <div class="field" style="flex:0 0 120px">
+          <label for="f-time">Tempo</label>
+          <input type="text" id="f-time" placeholder="30 min">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-desc">Descrição</label>
+        <textarea id="f-desc" rows="2" placeholder="Descrição curta da receita"></textarea>
+      </div>
+      <div class="field">
+        <label for="f-ingredients">Ingredientes*</label>
+        <textarea id="f-ingredients" rows="5" placeholder="Um ingrediente por linha" required></textarea>
+        <div class="hint">Um ingrediente por linha.</div>
+      </div>
+      <div class="field">
+        <label for="f-steps">Modo de preparo*</label>
+        <textarea id="f-steps" rows="6" placeholder="Um passo por linha" required></textarea>
+        <div class="hint">Um passo por linha.</div>
+      </div>
+      <div class="action-row">
+        <button type="submit" class="btn-green"><i class="ti ti-check"></i> Salvar receita</button>
+        <button type="button" class="btn-outline" onclick="closeForm()">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const builtInRecipes = [
+
+// ═══════════════════════════════════════════════════════════════
+// MINHAS RECEITAS
+// ═══════════════════════════════════════════════════════════════
+{
+  id:101, emoji:"🌿", name:"Chimichurri fresco", category:"Minhas receitas", time:"10 min",
+  desc:"Molho argentino aromático, perfeito para carnes na brasa e petiscos.",
+  ingredients:["Salsinha a gosto","Cebolinha a gosto","1 cebola roxa","Alecrim a gosto","Azeite a gosto","Pimentão vermelho a gosto"],
+  steps:["Pique finamente a salsinha, cebolinha, cebola roxa e pimentão vermelho.","Adicione o alecrim picado.","Misture tudo e cubra com azeite.","Deixe descansar 15 minutos antes de servir.","Guarde em vidro fechado na geladeira por até 5 dias."]
+},
+{
+  id:102, emoji:"🍫", name:"Brigadeiro Tornelli", category:"Minhas receitas", time:"80 min",
+  desc:"Brigadeiro especial feito com doce de leite na pressão e chocolate do padre. Receita de família.",
+  ingredients:["1 lata de leite condensado","2 colheres grandes de chocolate do padre","1 colher de manteiga"],
+  steps:["Cozinhe a lata fechada de leite condensado na pressão coberta com água por 50 minutos após pegar pressão.","Desligue e aguarde a pressão sair naturalmente. Espere esfriar completamente antes de abrir.","Transfira para uma panela em fogo baixo e mexa para alisar a textura.","Adicione as 2 colheres de chocolate do padre e a manteiga.","Mexa constantemente até chegar no ponto (desgruda do fundo).","Deixe esfriar, enrole ou sirva de colher."]
+},
+{
+  id:103, emoji:"🥩", name:"Strogonoff", category:"Minhas receitas", time:"40 min",
+  desc:"Strogonoff cremoso com cogumelo Paris e carne de qualidade. Filé mignon ou alcatra.",
+  ingredients:["1 bandeja de cogumelo Paris","1 kg de filé mignon ou alcatra","Cebola a gosto","Alho a gosto","Tomate bem picado ou triturado a gosto","Creme de leite fresco a gosto","Mostarda dijon a gosto","Sal e pimenta a gosto"],
+  steps:["Corte a carne em tiras, tempere com sal e pimenta.","Sele a carne em fogo alto até dourar. Reserve.","Refogue cebola e alho na mesma panela.","Adicione os cogumelos fatiados e refogue 4 minutos.","Junte o tomate e cozinhe 5 minutos.","Retorne a carne, adicione creme de leite fresco e mostarda dijon.","Mexa até incorporar, ajuste o sal. Sirva com arroz e batata palha."]
+},
+{
+  id:104, emoji:"🥖", name:"Petisco da copa", category:"Minhas receitas", time:"15 min",
+  desc:"Pão francês recheado com linguiça temperada, mussarela e parmesão. Perfeito para jogo.",
+  ingredients:["Linguiça (sem capa) a gosto","Chimichurri seco a gosto","Maionese a gosto","Alho batido a gosto","Parmesão ralado a gosto","Pão francês","Fatias de mussarela"],
+  steps:["Misture linguiça sem capa, chimichurri, maionese, alho batido e parmesão até formar uma pasta.","Corte o pão francês ao meio no comprimento.","Coloque fatia de mussarela sobre o pão.","Espalhe a massa de linguiça generosamente.","Air fryer 200°C por 8-10 min, ou brasa até gratinar."]
+},
+{
+  id:105, emoji:"🍗", name:"Marinada para frango", category:"Minhas receitas", time:"30 min",
+  desc:"Marinada com toque asiático e cajun — 30 minutos e o frango fica suculento e cheio de sabor.",
+  ingredients:["Mostarda a gosto","Óleo de gergelim torrado a gosto","Shoyu a gosto","Suco de meio limão","4 dentes de alho","Salsinha a gosto","Tempero cajun a gosto","Um pouco de cerveja"],
+  steps:["Amasse ou processe os dentes de alho.","Misture todos os ingredientes.","Massageie o frango na marinada.","Deixe 30 minutos na geladeira.","Grelhe, asse ou prepare na brasa."]
+},
+{
+  id:106, emoji:"❤️", name:"Marinada para coração", category:"Minhas receitas", time:"30 min",
+  desc:"Marinada simples com chimichurri e cerveja clara para coração de frango na brasa.",
+  ingredients:["Chimichurri a gosto","Cerveja clara","Sal a gosto","Pimenta a gosto"],
+  steps:["Misture chimichurri, sal e pimenta.","Adicione cerveja clara até formar marinada líquida.","Mergulhe os corações e misture bem.","Marinar 30 minutos na geladeira.","Espete e grelhe na brasa, virando sempre."]
+},
+
+// ═══════════════════════════════════════════════════════════════
+// MOTHER SAUCES (Molhos Mãe)
+// ═══════════════════════════════════════════════════════════════
+{
+  id:201, emoji:"🥛", name:"Béchamel", category:"Molhos", time:"15 min",
+  mother:true, motherLabel:"Molho mãe",
+  desc:"O molho branco clássico da culinária francesa. Base para lasanha, croque-monsieur, gratinados e molho mornay.",
+  note:"Molho mãe francês — dá origem ao Mornay, Soubise, Nantua e outros clássicos.",
+  ingredients:["50g de manteiga","50g de farinha de trigo","500ml de leite integral","Sal a gosto","Pimenta-do-reino branca","Noz-moscada a gosto"],
+  steps:["Derreta a manteiga em fogo médio numa panela de fundo grosso.","Adicione a farinha de uma vez e mexa vigorosamente por 2 minutos — este é o roux branco.","Retire do fogo. Adicione o leite frio aos poucos, mexendo sempre com um fouet para não empelotar.","Volte ao fogo médio-baixo, mexendo sem parar até engrossar (±8 minutos).","Tempere com sal, pimenta branca e noz-moscada ralada na hora.","Para Mornay: adicione queijo gruyère ralado ao final."]
+},
+{
+  id:202, emoji:"🍅", name:"Espagnole (Molho Escuro)", category:"Molhos", time:"90 min",
+  mother:true, motherLabel:"Molho mãe",
+  desc:"Molho escuro robusto feito com roux escuro e fundo de carne. Base para demi-glace, bordelaise e chasseur.",
+  note:"Molho mãe francês — base do demi-glace, o 'ouro líquido' das cozinhas profissionais.",
+  ingredients:["100g de manteiga","100g de farinha de trigo","1L de fundo de carne (caldo)","200g de mirepoix (cebola, cenoura, salsão)","2 colheres de extrato de tomate","Buquê garni (louro, tomilho, salsa)","Sal e pimenta"],
+  steps:["Refogue o mirepoix na manteiga até dourar bem.","Adicione a farinha e mexa em fogo médio até o roux ficar cor de avelã escura (±10 min).","Junte o extrato de tomate, misture.","Adicione o fundo de carne quente aos poucos, mexendo sempre.","Adicione o buquê garni e cozinhe em fogo baixo por 1 hora, skimmando a espuma.","Coe, ajuste o sal. Para demi-glace: reduza à metade."]
+},
+{
+  id:203, emoji:"🧈", name:"Velouté", category:"Molhos", time:"30 min",
+  mother:true, motherLabel:"Molho mãe",
+  desc:"Molho aveludado feito com roux branco e fundo claro (de frango, peixe ou vitela). Base para supremê, allemande e bercy.",
+  note:"Molho mãe — varia conforme o fundo: frango, peixe ou vitela.",
+  ingredients:["50g de manteiga","50g de farinha de trigo","500ml de fundo claro de frango (ou peixe)","Sal e pimenta branca","Suco de limão (opcional)"],
+  steps:["Derreta a manteiga em fogo médio.","Adicione a farinha e cozinhe mexendo por 2-3 minutos formando um roux amarelo pálido.","Retire do fogo. Adicione o fundo quente aos poucos, mexendo com fouet.","Volte ao fogo e cozinhe ±20 minutos em fogo baixo, mexendo sempre.","Coe se necessário. Tempere com sal, pimenta e um fio de limão.","Para molho supremê: adicione creme de leite fresco ao velouté de frango."]
+},
+{
+  id:204, emoji:"🍳", name:"Hollandaise", category:"Molhos", time:"20 min",
+  mother:true, motherLabel:"Molho mãe",
+  desc:"Emulsão quente de gemas e manteiga clarificada com limão. Base para béarnaise, maltaise e choron.",
+  note:"Molho mãe — técnica de emulsão quente. Base do béarnaise (com estragão).",
+  ingredients:["3 gemas","200g de manteiga clarificada (ou ghee)","2 colheres de suco de limão","1 colher de água fria","Sal e pimenta caiena","Estragão seco (opcional)"],
+  steps:["Derreta a manteiga e clarificque (retire a espuma e o soro branquinho).","Em banho-maria (sem deixar a água ferver), bata as gemas com a água fria até triplicar de volume.","Retire do calor. Adicione a manteiga clarificada em fio bem fino, batendo constantemente.","A emulsão vai engrossar gradualmente.","Tempere com limão, sal e pimenta caiena.","Se empelotar, adicione 1 colher de água gelada e bata vigorosamente."]
+},
+{
+  id:205, emoji:"🍅", name:"Tomate (Sauce Tomat)", category:"Molhos", time:"45 min",
+  mother:true, motherLabel:"Molho mãe",
+  desc:"O clássico molho de tomate francês com fundo de carne e legumes. Base para pizzaiola, arrabbiata e portugaise.",
+  note:"Molho mãe — mais encorpado que o italiano, usa fundo de carne e mirepoix.",
+  ingredients:["1kg de tomates maduros (ou 1 lata de tomates pelados)","100g de bacon em cubos","1 cebola","2 cenouras","2 talos de salsão","4 dentes de alho","200ml de fundo de carne","2 colheres de extrato de tomate","Tomilho, louro","Sal, pimenta, açúcar"],
+  steps:["Refogue o bacon até dourar. Adicione o mirepoix (cebola, cenoura, salsão) e o alho.","Junte o extrato de tomate e refogue 2 minutos.","Adicione os tomates picados e o fundo de carne.","Adicione as ervas. Cozinhe em fogo baixo por 30-40 minutos.","Processe ou passe pela peneira conforme a textura desejada.","Ajuste o sal e, se necessário, uma pitada de açúcar para equilibrar a acidez."]
+},
+
+// ═══════════════════════════════════════════════════════════════
+// MOLHOS SECUNDÁRIOS
+// ═══════════════════════════════════════════════════════════════
+{
+  id:211, emoji:"🥩", name:"Demi-glace", category:"Molhos", time:"30 min",
+  desc:"Redução concentrada do molho espagnole. O 'ouro líquido' das cozinhas — intenso, brilhante e aveludado.",
+  ingredients:["500ml de molho espagnole pronto","500ml de fundo de carne","1 colher de manteiga gelada"],
+  steps:["Misture o espagnole com o fundo de carne numa panela.","Cozinhe em fogo médio-baixo sem tampa por ±25 minutos até reduzir à metade.","O molho deve revestir uma colher (nappe).","Monte com a manteiga gelada fora do fogo, girando a panela.","Use sobre filés, medalhões ou como base de molhos compostos."]
+},
+{
+  id:212, emoji:"🫙", name:"Béarnaise", category:"Molhos", time:"25 min",
+  desc:"Derivado do hollandaise com estragão e echalota. O molho clássico do filé ao poivre e entrecôte.",
+  ingredients:["3 gemas","180g de manteiga clarificada","2 echalotes picadas","3 colheres de vinagre de vinho branco","Estragão fresco","Pimenta-do-reino em grão","Sal e pimenta caiena"],
+  steps:["Reduza vinagre com echalote e pimenta em grão até quase secar. Deixe esfriar.","Bata gemas com a redução em banho-maria até espumar e engrossar.","Fora do fogo, incorpore a manteiga clarificada em fio fino batendo sempre.","Coe, adicione estragão fresco picado.","Tempere com sal e caiena. Sirva imediatamente."]
+},
+{
+  id:213, emoji:"🧀", name:"Mornay", category:"Molhos", time:"18 min",
+  desc:"Béchamel com queijo gruyère ou parmesão. Base dos gratinados, croque-monsieur e macarrão com queijo.",
+  ingredients:["500ml de béchamel pronto","100g de queijo gruyère ralado","50g de parmesão ralado","1 gema (opcional, para enriquecer)","Sal, pimenta e noz-moscada"],
+  steps:["Aqueça o béchamel em fogo baixo.","Adicione o gruyère e o parmesão aos poucos, mexendo até derreter.","Se usar gema, misture fora do fogo para não cozinhar.","Ajuste o tempero com sal, pimenta e noz-moscada.","Use em gratinados, macarrão, ovos à florentina."]
+},
+{
+  id:214, emoji:"🌿", name:"Gremolata & Chimichurri verde", category:"Molhos", time:"10 min",
+  desc:"Duas condimentações frescas à base de ervas. Gremolata italiana para ossobuco; chimichurri para carnes na brasa.",
+  ingredients:["Salsa picada fina (1 maço)","2 dentes de alho ralados","Raspas de 1 limão (gremolata)","Azeite extra virgem","Vinagre de vinho tinto (chimichurri)","Orégano seco","Sal e pimenta"],
+  steps:["Para gremolata: misture salsa picada, alho ralado e raspas de limão. Use fresco sobre carnes braseadas.","Para chimichurri verde: bata no processador salsa, alho, orégano, azeite e vinagre. Tempere.","Ambos ficam melhores após descanso de 15 minutos para os sabores se integrarem.","Guarde em vidro coberto com azeite na geladeira por até 1 semana."]
+},
+{
+  id:215, emoji:"🫐", name:"Bordelaise", category:"Molhos", time:"30 min",
+  desc:"Molho derivado do demi-glace com vinho tinto Bordeaux e tutano. Clássico com filé grelhado.",
+  ingredients:["200ml de vinho tinto seco (Bordeaux ou Cabernet)","2 echalotes picadas","200ml de demi-glace","1 colher de manteiga gelada","Tomilho fresco","Tutano (opcional, mas clássico)","Sal e pimenta"],
+  steps:["Reduza o vinho tinto com as echalotes e tomilho até restar 1/3.","Adicione o demi-glace e cozinhe 10 minutos em fogo baixo.","Coe bem para remover os sólidos.","Monte com manteiga gelada fora do fogo.","Se usar tutano, branqueie em água salgada e adicione ao final.","Sirva sobre filé mignon ou entrecôte grelhado."]
+},
+{
+  id:216, emoji:"🍋", name:"Beurre Blanc", category:"Molhos", time:"20 min",
+  desc:"Emulsão de manteiga com vinho branco e echalota. Delicado, ácido e ideal para peixes e frutos do mar.",
+  ingredients:["3 echalotes bem picadas","100ml de vinho branco seco","50ml de vinagre de vinho branco","200g de manteiga gelada em cubos","Sal e pimenta branca","Creme de leite fresco (1 colher, para estabilizar)"],
+  steps:["Reduza o vinho branco e o vinagre com as echalotes até restar 2 colheres de líquido.","Adicione a colher de creme de leite e reduza um pouco mais.","Em fogo baixíssimo, incorpore a manteiga gelada cubo a cubo, batendo sempre.","A emulsão deve ser cremosa e aveludada — nunca deixe ferver.","Coe se preferir sem pedaços de echalota. Tempere.","Sirva imediatamente sobre peixe, vieira ou aspargos."]
+},
+{
+  id:217, emoji:"🥣", name:"Velouté de cogumelos (Allemande)", category:"Molhos", time:"25 min",
+  desc:"Velouté enriquecido com gemas e creme. Perfeito para frango, vitela e massas recheadas.",
+  ingredients:["400ml de velouté de frango pronto","2 gemas","100ml de creme de leite fresco","200g de cogumelos variados","1 colher de manteiga","Suco de limão","Sal e pimenta"],
+  steps:["Refogue os cogumelos fatiados na manteiga até dourar. Reserve.","Aqueça o velouté em fogo baixo.","Misture as gemas com o creme de leite numa tigela.","Adicione 2 colheres do velouté quente à mistura de gema (temperar as gemas), depois incorpore tudo ao molho.","Cozinhe em fogo baixo mexendo — não deixe ferver (talha).","Adicione os cogumelos, limão, ajuste o tempero."]
+},
+
+// ═══════════════════════════════════════════════════════════════
+// RECEITAS DE CHEFS
+// ═══════════════════════════════════════════════════════════════
+{
+  id:301, emoji:"🍳", name:"Ovos perfeitos scrambled", category:"Receitas de chefs", time:"8 min",
+  chef:"Gordon Ramsay", chefLabel:"Gordon Ramsay",
+  desc:"Os famosos ovos mexidos cremosos de Gordon Ramsay — feitos em fogo baixo com manteiga e crème fraîche.",
+  ingredients:["3 ovos por pessoa","1 colher de manteiga","1 colher de crème fraîche (ou cream cheese)","Cebolinha fresca picada","Sal e pimenta","Fatias de pão torrado para servir"],
+  steps:["Quebre os ovos diretamente na panela fria com a manteiga — não bata antes.","Leve ao fogo médio e comece a mexer lentamente com uma espátula de silicone.","A cada 20-30 segundos, tire do fogo e continue mexendo — isso controla o calor.","Repita o processo: fogo, mexe, fora do fogo, mexe (±4 minutos no total).","Quando quase no ponto (ainda ligeiramente úmido), tire do fogo definitivamente.","Adicione o crème fraîche, misture. Tempere com sal e pimenta só agora.","Sirva sobre pão torrado com cebolinha fresca."]
+},
+{
+  id:302, emoji:"🍝", name:"Cacio e Pepe", category:"Receitas de chefs", time:"20 min",
+  chef:"Massimo Bottura", chefLabel:"Massimo Bottura",
+  desc:"O mais simples e difícil prato romano: massa, queijo pecorino e pimenta-do-reino. Técnica é tudo.",
+  ingredients:["200g de espaguete ou tonnarelli","100g de pecorino romano ralado fino","1 colher de pimenta-do-reino preta (moída grossa)","Sal para a água do cozimento","Azeite (opcional)"],
+  steps:["Torrar a pimenta-do-reino moída em frigideira seca por 1 minuto. Reserve.","Cozinhe a massa em pouca água salgada (mais concentrada que o normal).","Reserve 200ml da água do cozimento antes de escorrer.","Misture o pecorino com 3-4 colheres da água da massa (morna, não fervendo) até formar uma pasta cremosa.","Escorra a massa al dente. Na frigideira com a pimenta, adicione a massa e um pouco da água.","Fora do fogo, incorpore a pasta de queijo mexendo vigorosamente — o calor residual cria o molho.","Sirva imediatamente. Se empelotar, adicione água da massa aos poucos."]
+},
+{
+  id:303, emoji:"🍗", name:"Frango assado à Joël Robuchon", category:"Receitas de chefs", time:"70 min",
+  chef:"Joël Robuchon", chefLabel:"Joël Robuchon",
+  desc:"Frango assado com manteiga de ervas sob a pele — técnica simples que garante carne suculenta e pele dourada.",
+  ingredients:["1 frango inteiro (±1,5kg)","80g de manteiga amolecida","4 dentes de alho","Tomilho fresco","Alecrim fresco","1 limão","Sal e pimenta","Azeite"],
+  steps:["Misture a manteiga amolecida com 2 dentes de alho amassados, tomilho e alecrim picados, sal e pimenta.","Com os dedos, separe cuidadosamente a pele do peito e das coxas sem rasgar.","Introduza a manteiga de ervas sob a pele, distribuindo bem.","Coloque o limão cortado e os dentes de alho restantes dentro da cavidade.","Amarre as pernas com barbante, regue com azeite e tempere a pele.","Asse a 220°C por 15 min para dourar, depois baixe para 180°C e complete 50 min.","Regue com os sucos da assadeira a cada 20 minutos. Descanse 10 min antes de cortar."]
+},
+{
+  id:304, emoji:"🍲", name:"Ratatouille de Thomas Keller", category:"Receitas de chefs", time:"90 min",
+  chef:"Thomas Keller", chefLabel:"Thomas Keller",
+  desc:"A versão confit byaldi do chef do The French Laundry — legumes fatiados em papel, assados lentamente com vinagrete de pimentão.",
+  ingredients:["2 abobrinhas","2 berinjelas","4 tomates maduros","1 cebola grande","2 pimentões vermelhos","Azeite extra virgem","Tomilho fresco","Louro","Alho","Sal e pimenta"],
+  steps:["Processe os pimentões assados (sem pele) com azeite, alho e tomilho — esta é a piperade. Espalhe no fundo de um refratário.","Fatie todos os legumes (abobrinha, berinjela, tomate) em rodelas de ±3mm com mandolina ou faca.","Sobreponha as fatias alternadas em círculos concêntricos sobre a piperade.","Regue generosamente com azeite, tomilho, sal e pimenta.","Cubra com papel manteiga cortado no tamanho da forma (cartouche).","Asse a 135°C por 2 horas até tudo estar macio e levemente caramelizado.","Sirva com um fio de azeite e folhas de tomilho fresco."]
+},
+{
+  id:305, emoji:"🥩", name:"Bife perfeito ao estilo Ramsay", category:"Receitas de chefs", time:"15 min",
+  chef:"Gordon Ramsay", chefLabel:"Gordon Ramsay",
+  desc:"Técnica de Gordon para um filé perfeito: selagem a alta temperatura, manteiga aromatizada e repouso obrigatório.",
+  ingredients:["2 filés mignon ou ribeye (±250g cada)","2 colheres de manteiga","3 dentes de alho com casca","Alecrim fresco","Tomilho fresco","Azeite","Sal grosso e pimenta-do-reino"],
+  steps:["Tempere generosamente com sal e pimenta dos dois lados. Deixe 20 min fora da geladeira.","Aqueça uma frigideira de ferro em fogo alto até começar a soltar fumaça.","Regue com azeite e sele os bifes 2-3 min de cada lado sem mexer.","Adicione manteiga, alho com casca amassado, alecrim e tomilho.","Incline a frigideira e banhe os bifes repetidamente com a manteiga aromatizada por 1-2 min.","Transfira para a tábua e descanse obrigatoriamente 5 minutos antes de cortar.","Finalize com flor de sal e um fio do molho da frigideira."]
+},
+{
+  id:306, emoji:"🍮", name:"Crème brûlée clássico", category:"Receitas de chefs", time:"60 min",
+  chef:"Joël Robuchon", chefLabel:"Joël Robuchon",
+  desc:"A sobremesa francesa mais elegante e simples: creme de baunilha com açúcar queimado crocante por cima.",
+  ingredients:["500ml de creme de leite fresco","6 gemas","100g de açúcar refinado","1 fava de baunilha","4 colheres de açúcar demerara (para caramelizar)"],
+  steps:["Fenda a fava de baunilha, raspe as sementes e ferva com o creme de leite. Deixe infusionar 10 min.","Bata as gemas com o açúcar até clarear.","Despeje o creme (morno, não fervendo) sobre as gemas aos poucos, mexendo sempre.","Coe e distribua nos ramequins.","Asse em banho-maria a 150°C por 40-45 min — deve tremular levemente no centro.","Resfrie e leve à geladeira por mínimo 2 horas.","Na hora de servir, polvilhe açúcar demerara e queime com maçarico até caramelizar."]
+},
+{
+  id:307, emoji:"🐟", name:"Salmão en papillote", category:"Receitas de chefs", time:"25 min",
+  chef:"Jacques Pépin", chefLabel:"Jacques Pépin",
+  desc:"Técnica do chef clássico francês: peixe cozido no próprio vapor dentro de papel manteiga — simples e infalível.",
+  ingredients:["2 filés de salmão (±180g cada)","1 abobrinha fatiada fina","1 tomate em rodelas","1 limão fatiado","Tomilho fresco","Azeite","Sal e pimenta","Vinho branco seco (2 colheres)"],
+  steps:["Preaqueça o forno a 200°C.","Corte 2 folhas grandes de papel manteiga em formato oval (coração).","Monte: legumes no centro, filé de salmão por cima, rodelas de limão, tomilho, sal e pimenta.","Regue com azeite e vinho branco.","Feche o papillote dobrando bem as bordas em meia-lua — nenhum vapor deve escapar.","Asse por 12-15 minutos (o papel vai inflar).","Sirva na mesa — abra na frente do convidado para o efeito visual."]
+}
+
+];
+
+// ── ESTADO E PERSISTÊNCIA ──────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let userRecipes = [];
+try { userRecipes = JSON.parse(localStorage.getItem('userRecipes') || '[]'); } catch(e) { userRecipes = []; }
+
+let recipes = [];
+function rebuildRecipes() { recipes = builtInRecipes.concat(userRecipes); }
+rebuildRecipes();
+
+let activeCategory = "Todas";
+
+let cart = new Set();
+try { cart = new Set(JSON.parse(localStorage.getItem('cart') || '[]')); } catch(e) {}
+
+let checked = {};
+try {
+  const storedChecked = JSON.parse(localStorage.getItem('checked') || '{}');
+  Object.keys(storedChecked).forEach(k => checked[k] = new Set(storedChecked[k]));
+} catch(e) {}
+
+let haveAtHome = {};
+try { haveAtHome = JSON.parse(localStorage.getItem('haveAtHome') || '{}'); } catch(e) {}
+
+function saveUserRecipes() { localStorage.setItem('userRecipes', JSON.stringify(userRecipes)); }
+function saveCart() { localStorage.setItem('cart', JSON.stringify([...cart])); }
+function saveChecked() {
+  const obj = {};
+  Object.keys(checked).forEach(k => obj[k] = [...checked[k]]);
+  localStorage.setItem('checked', JSON.stringify(obj));
+}
+function saveHaveAtHome() { localStorage.setItem('haveAtHome', JSON.stringify(haveAtHome)); }
+
+// ── HELPERS ──────────────────────────────────────────────────────────────
+function catBadgeClass(cat) {
+  if (cat === "Molhos") return "badge-cat-molhos";
+  if (cat === "Receitas de chefs") return "badge-cat-chefs";
+  return "badge-cat-default";
+}
+
+function getCategories() { return ["Todas", ...new Set(recipes.map(r => r.category))]; }
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = recipes.filter(r => {
+    const catOk = activeCategory === "Todas" || r.category === activeCategory;
+    const qOk = r.name.toLowerCase().includes(q) || r.desc.toLowerCase().includes(q) || r.category.toLowerCase().includes(q) || (r.chef && r.chef.toLowerCase().includes(q));
+    return catOk && qOk;
+  });
+  const grid = document.getElementById('grid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty"><i class="ti ti-search"></i>Nenhuma receita encontrada</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(r => `
+    <div class="card" onclick="openRecipe(${r.id})">
+      <div class="card-emoji">${esc(r.emoji)}</div>
+      <h3>${esc(r.name)}</h3>
+      <p>${esc(r.desc)}</p>
+      <div class="card-meta">
+        <span class="badge ${catBadgeClass(r.category)}">${esc(r.motherLabel || r.chefLabel || r.category)}</span>
+        <span class="badge badge-time"><i class="ti ti-clock" style="font-size:11px"></i> ${esc(r.time)}</span>
+        ${r.id >= 400 ? '<span class="badge badge-custom"><i class="ti ti-user" style="font-size:10px"></i> Minha receita</span>' : ''}
+        ${cart.has(r.id) ? '<span class="badge badge-added" style="margin-left:auto"><i class="ti ti-check" style="font-size:10px"></i> Na lista</span>' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTabs() {
+  document.getElementById('tabs').innerHTML = getCategories().map(c =>
+    `<div class="tab ${c === activeCategory ? 'active' : ''}" onclick="setCategory('${esc(c).replace(/'/g,"\\'")}')">${esc(c)}</div>`
+  ).join('');
+}
+
+function setCategory(c) { activeCategory = c; renderTabs(); render(); }
+
+function openRecipe(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!checked[id]) checked[id] = new Set();
+  const inCart = cart.has(id);
+  const isCustom = id >= 400;
+  const extraBadge = r.motherLabel
+    ? `<span class="badge badge-mother"><i class="ti ti-crown" style="font-size:10px"></i> ${esc(r.motherLabel)}</span>`
+    : r.chefLabel
+    ? `<span class="badge badge-chef-tag"><i class="ti ti-chef-hat" style="font-size:10px"></i> ${esc(r.chefLabel)}</span>`
+    : isCustom
+    ? `<span class="badge badge-custom"><i class="ti ti-user" style="font-size:10px"></i> Minha receita</span>`
+    : '';
+
+  document.getElementById('recipeContent').innerHTML = `
+    <div class="modal-head">
+      <div>
+        <div class="modal-emoji">${esc(r.emoji)}</div>
+        <h2>${esc(r.name)}</h2>
+        <div class="modal-badges">
+          ${extraBadge}
+          <span class="badge badge-time"><i class="ti ti-clock" style="font-size:11px"></i> ${esc(r.time)}</span>
+        </div>
+      </div>
+      <button class="close-btn" onclick="closeRecipe()"><i class="ti ti-x"></i></button>
+    </div>
+    <p class="modal-desc">${esc(r.desc)}</p>
+    ${r.note ? `<div class="modal-note"><i class="ti ti-info-circle" style="font-size:14px;vertical-align:-2px"></i> ${esc(r.note)}</div>` : ''}
+    <div class="section-label">Ingredientes</div>
+    <ul class="ing-list">
+      ${r.ingredients.map((ing, i) => `
+        <li>
+          <div class="ing-box ${checked[id].has(i) ? 'on' : ''}" onclick="toggleIng(${id},${i},this)"></div>
+          <span class="ing-text ${checked[id].has(i) ? 'done' : ''}" id="it-${id}-${i}">${esc(ing)}</span>
+        </li>
+      `).join('')}
+    </ul>
+    <div class="section-label">Modo de preparo</div>
+    <ol class="steps-list">
+      ${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}
+    </ol>
+    <div class="action-row">
+      <button class="btn-green" onclick="toggleCart(${id})">
+        <i class="ti ti-${inCart ? 'minus' : 'plus'}"></i>
+        ${inCart ? 'Remover da lista de compras' : 'Adicionar à lista de compras'}
+      </button>
+      ${isCustom ? `<button class="btn-outline" onclick="deleteUserRecipe(${id})" style="color:#c0392b"><i class="ti ti-trash"></i> Excluir receita</button>` : ''}
+    </div>
+  `;
+  document.getElementById('recipeOverlay').classList.add('open');
+}
+
+function toggleIng(rid, idx, el) {
+  if (!checked[rid]) checked[rid] = new Set();
+  if (checked[rid].has(idx)) {
+    checked[rid].delete(idx); el.classList.remove('on');
+    document.getElementById(`it-${rid}-${idx}`).classList.remove('done');
+  } else {
+    checked[rid].add(idx); el.classList.add('on');
+    document.getElementById(`it-${rid}-${idx}`).classList.add('done');
+  }
+  saveChecked();
+}
+
+function toggleCart(id) {
+  if (cart.has(id)) cart.delete(id); else cart.add(id);
+  saveCart();
+  updateFab(); render(); openRecipe(id);
+}
+
+function closeRecipe() { document.getElementById('recipeOverlay').classList.remove('open'); }
+
+function deleteUserRecipe(id) {
+  if (!confirm('Excluir esta receita? Essa ação não pode ser desfeita.')) return;
+  userRecipes = userRecipes.filter(r => r.id !== id);
+  saveUserRecipes();
+  rebuildRecipes();
+  cart.delete(id); saveCart();
+  delete checked[id]; saveChecked();
+  closeRecipe();
+  renderTabs(); render(); updateFab();
+}
+
+function updateFab() {
+  document.getElementById('cartCount').textContent = cart.size;
+  document.getElementById('cartFab').classList.toggle('show', cart.size > 0);
+}
+
+function openCart() {
+  const map = {};
+  cart.forEach(id => {
+    const r = recipes.find(x => x.id === id);
+    if (!r) return;
+    r.ingredients.forEach(ing => {
+      const key = ing.toLowerCase().trim();
+      if (!map[key]) map[key] = { ing, from: [] };
+      map[key].from.push(r.name);
+    });
+  });
+  const items = Object.values(map);
+  document.getElementById('shoppingList').innerHTML = items.length
+    ? items.map((item, i) => {
+        const key = item.ing.toLowerCase().trim();
+        const isHome = !!haveAtHome[key];
+        return `
+      <div class="sl-item">
+        <input type="checkbox" id="sl${i}" data-key="${esc(key)}" ${isHome ? 'checked' : ''}>
+        <label for="sl${i}" class="ing-text ${isHome ? 'done' : ''}">${esc(item.ing)}</label>
+        <span class="sl-from">${item.from.length > 1 ? item.from.length + ' receitas' : esc(item.from[0])}</span>
+      </div>`;
+      }).join('')
+    : '<p style="color:var(--text-secondary);font-size:14px;padding:1rem 0">Nenhuma receita selecionada ainda.</p>';
+  document.querySelectorAll('#shoppingList input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      haveAtHome[cb.dataset.key] = cb.checked;
+      cb.nextElementSibling.classList.toggle('done', cb.checked);
+      saveHaveAtHome();
+    });
+  });
+  document.getElementById('cartOverlay').classList.add('open');
+}
+
+function closeCart() { document.getElementById('cartOverlay').classList.remove('open'); }
+
+function clearCart() { cart.clear(); saveCart(); updateFab(); render(); closeCart(); }
+
+function copyList() {
+  const lines = ['🛒 Lista de compras\n'];
+  cart.forEach(id => {
+    const r = recipes.find(x => x.id === id);
+    if (!r) return;
+    lines.push(`\n📌 ${r.name}:`);
+    r.ingredients.forEach(i => lines.push(`  • ${i}`));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.querySelector('#cartOverlay .btn-green');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ti ti-check"></i> Copiado!';
+    setTimeout(() => btn.innerHTML = orig, 2200);
+  });
+}
+
+// ── FORMULÁRIO DE NOVA RECEITA ──────────────────────────────────────────────
+function openForm() {
+  document.getElementById('recipeForm').reset();
+  const dl = document.getElementById('categoryList');
+  dl.innerHTML = [...new Set(recipes.map(r => r.category))].map(c => `<option value="${esc(c)}">`).join('');
+  document.getElementById('formOverlay').classList.add('open');
+}
+
+function closeForm() { document.getElementById('formOverlay').classList.remove('open'); }
+
+function saveRecipeForm(e) {
+  e.preventDefault();
+  const name = document.getElementById('f-name').value.trim();
+  const ingredients = document.getElementById('f-ingredients').value.split('\n').map(s => s.trim()).filter(Boolean);
+  const steps = document.getElementById('f-steps').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!name || !ingredients.length || !steps.length) {
+    alert('Preencha ao menos o nome, os ingredientes e o modo de preparo.');
+    return false;
+  }
+  const recipe = {
+    id: Date.now(),
+    emoji: document.getElementById('f-emoji').value.trim() || '🍽️',
+    name,
+    category: document.getElementById('f-category').value.trim() || 'Minhas receitas',
+    time: document.getElementById('f-time').value.trim() || '—',
+    desc: document.getElementById('f-desc').value.trim() || '',
+    ingredients,
+    steps
+  };
+  userRecipes.push(recipe);
+  saveUserRecipes();
+  rebuildRecipes();
+  closeForm();
+  renderTabs(); render();
+  return false;
+}
+
+// ── EXPORTAR / IMPORTAR ──────────────────────────────────────────────────
+function exportRecipes() {
+  if (!userRecipes.length) { alert('Você ainda não adicionou nenhuma receita própria.'); return; }
+  const blob = new Blob([JSON.stringify(userRecipes, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'minhas-receitas.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importRecipes(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data)) throw new Error('formato inválido');
+      const existingIds = new Set(recipes.map(r => r.id));
+      data.forEach(r => {
+        if (!r.id || existingIds.has(r.id)) r.id = Date.now() + Math.floor(Math.random() * 100000);
+        existingIds.add(r.id);
+      });
+      userRecipes = userRecipes.concat(data);
+      saveUserRecipes();
+      rebuildRecipes();
+      renderTabs(); render();
+      alert(`${data.length} receita(s) importada(s) com sucesso!`);
+    } catch (err) {
+      alert('Erro ao importar: arquivo JSON inválido.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ── PWA: INSTALAÇÃO E SERVICE WORKER ────────────────────────────────────
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installBtn').style.display = 'inline-flex';
+});
+
+async function installApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installBtn').style.display = 'none';
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').style.display = 'none';
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.warn('Falha ao registrar service worker', err));
+  });
+}
+
+document.getElementById('recipeOverlay').addEventListener('click', function(e) { if (e.target===this) closeRecipe(); });
+document.getElementById('cartOverlay').addEventListener('click', function(e) { if (e.target===this) closeCart(); });
+document.getElementById('formOverlay').addEventListener('click', function(e) { if (e.target===this) closeForm(); });
+
+renderTabs(); render(); updateFab();
+</script>
+</body>
+</html>
