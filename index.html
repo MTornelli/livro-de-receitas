@@ -276,7 +276,7 @@
 // ║  Deixando os dois campos vazios, o app funciona exatamente como antes,   ║
 // ║  salvando tudo só no aparelho.                                           ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
-const SUPABASE_URL      = 'https://pxliilxdwqlpkjcgauac.supabase.co/rest/v1/';
+const SUPABASE_URL      = 'https://pxliilxdwqlpkjcgauac.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4bGlpbHhkd3FscGtqY2dhdWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MDgwNDEsImV4cCI6MjEwMTA4NDA0MX0.bbY0qGP40-_ek66mnLNyk-qT6mJoxtMesQ15SpUxeSc';
 
 const builtInRecipes = [
@@ -553,13 +553,32 @@ function recipeToRow(r) {
   };
 }
 
+// O painel do Supabase mostra tanto o endereço do projeto quanto o da API REST,
+// e é fácil copiar o segundo. A biblioteca já acrescenta /rest/v1 sozinha, então
+// deixar isso passar produziria uma URL duplicada e um erro obscuro de caminho
+// inválido. Aqui a sobra é removida, com aviso no console.
+function normalizeSupabaseUrl(raw) {
+  try {
+    const u = new URL(raw.trim());
+    if (u.pathname && u.pathname !== '/') {
+      console.warn(`SUPABASE_URL tem caminho a mais ("${u.pathname}"); usando ${u.origin}. Prefira o "Project URL" do painel.`);
+    }
+    return u.origin;
+  } catch (e) {
+    console.error('SUPABASE_URL inválida:', raw);
+    return '';
+  }
+}
+
 async function initSync() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;   // app segue 100% local
-  if (!window.supabase) {                            // CDN indisponível / offline
+  if (!window.supabase) {                            // vendor/supabase.js não carregou
     console.warn('Biblioteca do Supabase não carregou; seguindo apenas com armazenamento local.');
     return;
   }
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const url = normalizeSupabaseUrl(SUPABASE_URL);
+  if (!url) return;
+  sb = window.supabase.createClient(url, SUPABASE_ANON_KEY);
   document.getElementById('authBtn').style.display = 'inline-flex';
 
   const { data } = await sb.auth.getSession();
