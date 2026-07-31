@@ -116,6 +116,30 @@ eq('vinagre de vinho é molho',  secao1('50ml de vinagre de vinho branco'), 'mol
 eq('salsão é legume',  secao1('2 talos de salsão'), 'hortifruti');
 eq('salsinha é tempero', secao1('Salsinha'),        'temperos');
 
+grupo('Escala de receita');
+const esc2 = (l, f) => I.escalarLinha(l, f);
+eq('dobra gramas',      esc2('100g de manteiga', 2),        '200g de manteiga');
+eq('metade de gramas',  esc2('100g de manteiga', 0.5),      '50g de manteiga');
+eq('gramas viram kg',   esc2('600g de manteiga', 2),        '1.2kg de manteiga');
+eq('kg continua kg',    esc2('1kg de filé mignon', 3),      '3kg de filé mignon');
+eq('ml viram litro',    esc2('500ml de leite integral', 3), '1.5L de leite integral');
+eq('ml normal',         esc2('100ml de vinho branco', 2),   '200ml de vinho branco');
+eq('colheres dobram',   esc2('2 colheres de manteiga', 2),  '4 colheres de manteiga');
+eq('dentes dobram',     esc2('4 dentes de alho', 2),        '8 dentes de alho');
+// Contáveis arredondam para cima — meia cebola não existe no mercado.
+eq('meia cebola vira uma', esc2('1 cebola', 0.5),           '1 cebola');
+eq('3 ovos pela metade',   esc2('3 ovos por pessoa', 0.5),  '2 ovos por pessoa');
+eq('preserva o resto do texto', esc2('2 dentes de alho ralados', 3), '6 dentes de alho ralados');
+// Sem número na frente, nada muda.
+eq('a gosto intacto',   esc2('Sal a gosto', 3),             'Sal a gosto');
+eq('sem número',        esc2('Azeite extra virgem', 2),     'Azeite extra virgem');
+eq('fator 1 não mexe',  esc2('100g de manteiga', 1),        '100g de manteiga');
+eq('linha vazia',       esc2('', 2),                        '');
+eq('nulo',              esc2(null, 2),                      '');
+// A lista de compras precisa continuar entendendo a linha escalada.
+eq('escalada segue interpretável', nome1(esc2('100g de manteiga', 2)), 'manteiga');
+eq('quantidade escalada bate',     qtd1(esc2('100g de manteiga', 2)), [200, 'massa']);
+
 grupo('Lista vazia e entradas degeneradas');
 eq('linha vazia',    I.interpretar(''),        []);
 eq('só espaços',     I.interpretar('   '),     []);

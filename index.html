@@ -120,6 +120,16 @@
   .sl-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
   .sl-item label { flex: 1; cursor: pointer; }
   .sl-from { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+  /* ── Multiplicador de receita ───────────────────────────────────────── */
+  .mult { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .mult-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; }
+  .mult-opts { display: inline-flex; border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); overflow: hidden; }
+  .mult-op { padding: 7px 14px; background: var(--bg-primary); color: var(--text-secondary); border: none; border-right: 0.5px solid var(--border-mid); font-size: 13px; cursor: pointer; font-family: inherit; font-variant-numeric: tabular-nums; }
+  .mult-op:last-child { border-right: none; }
+  .mult-op:hover { color: var(--green); }
+  .mult-op.on { background: var(--green); color: #fff; font-weight: 600; }
+  .mult-aviso { font-size: 12px; color: var(--green-dark); background: var(--green-light); padding: 4px 10px; border-radius: 12px; }
+
   /* ── Modo cozinha ──────────────────────────────────────────────────────
      Tela cheia, alvos grandes: quem está no fogão tem a mão ocupada e suja. */
   .cook { display: none; position: fixed; inset: 0; z-index: 400; background: var(--bg-primary); flex-direction: column; }
@@ -810,9 +820,47 @@ function renderTabs() {
 
 function setCategory(c) { activeCategory = c; renderTabs(); render(); }
 
+// ── MULTIPLICADOR DE RECEITA ─────────────────────────────────────────────
+// Guardado por receita e por aparelho. Vale para a receita aberta e para a
+// lista de compras — marcar 3× e comprar para 1× seria pior que não ter.
+const FATORES = [0.5, 1, 2, 3];
+
+let multiplicadores = {};
+try { multiplicadores = JSON.parse(localStorage.getItem('multiplicadores') || '{}'); } catch(e) {}
+function saveMultiplicadores() { localStorage.setItem('multiplicadores', JSON.stringify(multiplicadores)); }
+
+function multiplicadorDe(id) { return multiplicadores[id] || 1; }
+function rotuloFator(f) { return f === 0.5 ? '½×' : f + '×'; }
+
+function setMultiplicador(id, f) {
+  if (f === 1) delete multiplicadores[id];
+  else multiplicadores[id] = f;
+  saveMultiplicadores();
+  openRecipe(id);            // redesenha o modal já com as quantidades novas
+  updateFab();
+}
+
+function ingredientesEscalados(r, fator) {
+  if (!window.Ingredientes || fator === 1) return r.ingredients || [];
+  return (r.ingredients || []).map(l => Ingredientes.escalarLinha(l, fator));
+}
+
+// Receitas do carrinho já com o fator aplicado. O nome carrega o "3×" para a
+// origem do item continuar rastreável dentro da lista.
+function receitasDoCarrinho() {
+  return [...cart].map(id => {
+    const r = recipes.find(x => x.id === id);
+    if (!r) return null;
+    const f = multiplicadorDe(id);
+    if (f === 1) return r;
+    return { ...r, name: `${r.name} ${rotuloFator(f)}`, ingredients: ingredientesEscalados(r, f) };
+  }).filter(Boolean);
+}
+
 function openRecipe(id) {
   const r = recipes.find(x => x.id === id);
   if (!checked[id]) checked[id] = new Set();
+  const fator = multiplicadorDe(id);
   const inCart = cart.has(id);
   const isCustom = id >= 400;
   const extraBadge = r.motherLabel
@@ -838,8 +886,16 @@ function openRecipe(id) {
     <p class="modal-desc">${esc(r.desc)}</p>
     ${r.note ? `<div class="modal-note"><i class="ti ti-info-circle" style="font-size:14px;vertical-align:-2px"></i> ${esc(r.note)}</div>` : ''}
     <div class="section-label">Ingredientes</div>
+    <div class="mult">
+      <span class="mult-label">Fazer</span>
+      <div class="mult-opts">
+        ${FATORES.map(f => `<button type="button" class="mult-op ${f === fator ? 'on' : ''}"
+          onclick="setMultiplicador(${id}, ${f})">${rotuloFator(f)}</button>`).join('')}
+      </div>
+      ${fator !== 1 ? '<span class="mult-aviso">a lista de compras acompanha</span>' : ''}
+    </div>
     <ul class="ing-list">
-      ${r.ingredients.map((ing, i) => `
+      ${ingredientesEscalados(r, fator).map((ing, i) => `
         <li>
           <div class="ing-box ${checked[id].has(i) ? 'on' : ''}" onclick="toggleIng(${id},${i},this)"></div>
           <span class="ing-text ${checked[id].has(i) ? 'done' : ''}" id="it-${id}-${i}">${esc(ing)}</span>
@@ -984,7 +1040,8 @@ function ingredientesDoPasso(r, texto) {
   const contem = (frase, termo) =>
     new RegExp('(^|[^a-z0-9])' + termo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(frase);
 
-  return (r.ingredients || []).filter(linha =>
+  // Escalado, para o modo cozinha mostrar a mesma quantidade da receita aberta.
+  return ingredientesEscalados(r, multiplicadorDe(r.id)).filter(linha =>
     Ingredientes.interpretar(linha).some(e => {
       const nome = Ingredientes.semAcento(e.nome);
       if (!nome) return false;
@@ -1067,9 +1124,8 @@ try { secoesFechadas = new Set(JSON.parse(localStorage.getItem('secoesFechadas')
 function saveSecoesFechadas() { localStorage.setItem('secoesFechadas', JSON.stringify([...secoesFechadas])); }
 
 function secoesDoCarrinho() {
-  const selecionadas = [...cart].map(id => recipes.find(r => r.id === id)).filter(Boolean);
   if (!window.Ingredientes) return null;      // ingredientes.js não carregou
-  return Ingredientes.montarLista(selecionadas);
+  return Ingredientes.montarLista(receitasDoCarrinho());
 }
 
 function openCart() {

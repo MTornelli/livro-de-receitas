@@ -269,6 +269,45 @@ function formatarQuantidade(familia, total) {
   return n + ' ' + (n === 1 ? sing : plur);
 }
 
+// ── Escala ──────────────────────────────────────────────────────────────────
+// Reescreve a linha original com a quantidade multiplicada, preservando o
+// texto descritivo: "100g de manteiga" em 2× vira "200g de manteiga".
+// Linhas sem número na frente ficam intactas — "Sal a gosto" continua a gosto
+// em qualquer fator.
+const RE_INICIO = /^(\s*)(\d+(?:[.,]\d+)?)(\s*)([a-zA-ZçÇãáéíóúâêôõüÀ-ÿ]*)/;
+
+function numeroCurto(n) {
+  return String(+(+n).toFixed(2));
+}
+
+function escalarLinha(linha, fator) {
+  const txt = String(linha == null ? '' : linha);
+  if (!txt || !fator || fator === 1) return txt;
+
+  const m = txt.match(RE_INICIO);
+  if (!m) return txt;
+
+  const [tudo, espacoInicial, numTxt, espaco, palavra] = m;
+  const unidade = UNIDADES.find(u => u.re.test(palavra));
+  let valor = parseFloat(numTxt.replace(',', '.')) * fator;
+  let sufixo = espaco + palavra;
+
+  if (unidade && unidade.familia === 'massa') {
+    const g = valor * unidade.fator;
+    if (g >= 1000) { valor = +(g / 1000).toFixed(2); sufixo = espaco + 'kg'; }
+    else { valor = Math.round(g); sufixo = espaco + 'g'; }
+  } else if (unidade && unidade.familia === 'volume') {
+    const ml = valor * unidade.fator;
+    if (ml >= 1000) { valor = +(ml / 1000).toFixed(2); sufixo = espaco + 'L'; }
+    else { valor = Math.round(ml); sufixo = espaco + 'ml'; }
+  } else {
+    // Contáveis arredondam para cima: não se compra meia cebola nem 1,5 ovo.
+    valor = Math.ceil(valor);
+  }
+
+  return espacoInicial + numeroCurto(valor) + sufixo + txt.slice(tudo.length);
+}
+
 // Recebe [{ingredientes:[...], nome:'Receita'}] e devolve as seções preenchidas.
 function montarLista(receitas) {
   const itens = {};
@@ -308,7 +347,8 @@ function montarLista(receitas) {
     .filter(s => s.itens.length);
 }
 
-const API = { interpretar, montarLista, formatarQuantidade, canonizar, classificar, semAcento, SECOES };
+const API = { interpretar, montarLista, formatarQuantidade, escalarLinha,
+              canonizar, classificar, semAcento, SECOES };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else root.Ingredientes = API;
 
