@@ -120,6 +120,45 @@
   .sl-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
   .sl-item label { flex: 1; cursor: pointer; }
   .sl-from { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+  /* ── Multiplicador de receita ───────────────────────────────────────── */
+  .mult { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  .mult-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; }
+  .mult-opts { display: inline-flex; border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); overflow: hidden; }
+  .mult-op { padding: 7px 14px; background: var(--bg-primary); color: var(--text-secondary); border: none; border-right: 0.5px solid var(--border-mid); font-size: 13px; cursor: pointer; font-family: inherit; font-variant-numeric: tabular-nums; }
+  .mult-op:last-child { border-right: none; }
+  .mult-op:hover { color: var(--green); }
+  .mult-op.on { background: var(--green); color: #fff; font-weight: 600; }
+  .mult-aviso { font-size: 12px; color: var(--green-dark); background: var(--green-light); padding: 4px 10px; border-radius: 12px; }
+
+  /* ── Modo cozinha ──────────────────────────────────────────────────────
+     Tela cheia, alvos grandes: quem está no fogão tem a mão ocupada e suja. */
+  .cook { display: none; position: fixed; inset: 0; z-index: 400; background: var(--bg-primary); flex-direction: column; }
+  .cook.open { display: flex; }
+  .cook-top { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 0.5px solid var(--border-light); }
+  .cook-top h3 { flex: 1; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cook-bar { height: 3px; background: var(--bg-secondary); }
+  .cook-bar span { display: block; height: 100%; background: var(--green); transition: width 0.25s; }
+  .cook-body { flex: 1; overflow-y: auto; padding: 1.75rem 1.5rem; display: flex; flex-direction: column; align-items: center; }
+  .cook-inner { width: 100%; max-width: 620px; }
+  .cook-conta { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+  .cook-passo { font-size: 22px; line-height: 1.5; font-weight: 400; margin-bottom: 1.5rem; }
+  @media (min-width: 700px) { .cook-passo { font-size: 25px; } }
+  .cook-ings { border-top: 0.5px solid var(--border-light); padding-top: 14px; }
+  .cook-ings .section-label { margin-bottom: 8px; }
+  .cook-ings li { font-size: 15px; color: var(--text-secondary); padding: 4px 0; list-style: none; }
+  .cook-ings li::before { content: '•'; color: var(--green); margin-right: 8px; }
+  .cook-nav { display: flex; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 0.5px solid var(--border-light); }
+  .cook-nav button { flex: 1; padding: 16px; font-size: 15px; font-weight: 500; border-radius: var(--radius-md); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-family: inherit; }
+  .cook-nav .prev { background: var(--bg-secondary); color: var(--text-primary); border: 0.5px solid var(--border-mid); }
+  .cook-nav .next { background: var(--green); color: #fff; border: none; }
+  .cook-nav button:disabled { opacity: 0.4; cursor: default; }
+  /* Cronômetro: fica no topo e sobrevive à troca de passo, porque quem põe
+     30 minutos no molho vai adiantar outra coisa enquanto espera. */
+  .timer-btn { display: inline-flex; align-items: center; gap: 7px; padding: 12px 20px; font-size: 16px; font-weight: 500; border-radius: 22px; border: 0.5px solid var(--green); background: var(--green-light); color: var(--green-dark); cursor: pointer; font-family: inherit; margin-bottom: 1.5rem; }
+  .timer-chip { display: none; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 16px; background: var(--green-light); color: var(--green-dark); cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .timer-chip.show { display: inline-flex; }
+  .timer-chip.tocando { background: var(--amber-light); color: var(--amber); animation: pisca 0.7s steps(1) infinite; }
+  @keyframes pisca { 50% { opacity: 0.35; } }
   .sl-vazio { color: var(--text-secondary); font-size: 14px; padding: 1rem 0; }
   .sl-qtd { font-weight: 600; color: var(--green-dark); }
   .ing-text.done .sl-qtd { color: inherit; }
@@ -175,6 +214,20 @@
 
 <div class="overlay" id="recipeOverlay">
   <div class="modal" id="recipeContent"></div>
+</div>
+
+<div class="cook" id="cookMode">
+  <div class="cook-top">
+    <h3 id="cookTitulo"></h3>
+    <span class="timer-chip" id="timerChip" onclick="pararTimer()"><i class="ti ti-alarm"></i><span id="timerTexto"></span></span>
+    <button class="close-btn" onclick="sairCozinha()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="cook-bar"><span id="cookBarra"></span></div>
+  <div class="cook-body"><div class="cook-inner" id="cookCorpo"></div></div>
+  <div class="cook-nav">
+    <button class="prev" id="cookPrev" onclick="passoAnterior()"><i class="ti ti-arrow-left"></i> Anterior</button>
+    <button class="next" id="cookNext" onclick="passoSeguinte()">Próximo <i class="ti ti-arrow-right"></i></button>
+  </div>
 </div>
 
 <div class="overlay" id="authOverlay">
@@ -767,9 +820,47 @@ function renderTabs() {
 
 function setCategory(c) { activeCategory = c; renderTabs(); render(); }
 
+// ── MULTIPLICADOR DE RECEITA ─────────────────────────────────────────────
+// Guardado por receita e por aparelho. Vale para a receita aberta e para a
+// lista de compras — marcar 3× e comprar para 1× seria pior que não ter.
+const FATORES = [0.5, 1, 2, 3];
+
+let multiplicadores = {};
+try { multiplicadores = JSON.parse(localStorage.getItem('multiplicadores') || '{}'); } catch(e) {}
+function saveMultiplicadores() { localStorage.setItem('multiplicadores', JSON.stringify(multiplicadores)); }
+
+function multiplicadorDe(id) { return multiplicadores[id] || 1; }
+function rotuloFator(f) { return f === 0.5 ? '½×' : f + '×'; }
+
+function setMultiplicador(id, f) {
+  if (f === 1) delete multiplicadores[id];
+  else multiplicadores[id] = f;
+  saveMultiplicadores();
+  openRecipe(id);            // redesenha o modal já com as quantidades novas
+  updateFab();
+}
+
+function ingredientesEscalados(r, fator) {
+  if (!window.Ingredientes || fator === 1) return r.ingredients || [];
+  return (r.ingredients || []).map(l => Ingredientes.escalarLinha(l, fator));
+}
+
+// Receitas do carrinho já com o fator aplicado. O nome carrega o "3×" para a
+// origem do item continuar rastreável dentro da lista.
+function receitasDoCarrinho() {
+  return [...cart].map(id => {
+    const r = recipes.find(x => x.id === id);
+    if (!r) return null;
+    const f = multiplicadorDe(id);
+    if (f === 1) return r;
+    return { ...r, name: `${r.name} ${rotuloFator(f)}`, ingredients: ingredientesEscalados(r, f) };
+  }).filter(Boolean);
+}
+
 function openRecipe(id) {
   const r = recipes.find(x => x.id === id);
   if (!checked[id]) checked[id] = new Set();
+  const fator = multiplicadorDe(id);
   const inCart = cart.has(id);
   const isCustom = id >= 400;
   const extraBadge = r.motherLabel
@@ -795,8 +886,16 @@ function openRecipe(id) {
     <p class="modal-desc">${esc(r.desc)}</p>
     ${r.note ? `<div class="modal-note"><i class="ti ti-info-circle" style="font-size:14px;vertical-align:-2px"></i> ${esc(r.note)}</div>` : ''}
     <div class="section-label">Ingredientes</div>
+    <div class="mult">
+      <span class="mult-label">Fazer</span>
+      <div class="mult-opts">
+        ${FATORES.map(f => `<button type="button" class="mult-op ${f === fator ? 'on' : ''}"
+          onclick="setMultiplicador(${id}, ${f})">${rotuloFator(f)}</button>`).join('')}
+      </div>
+      ${fator !== 1 ? '<span class="mult-aviso">a lista de compras acompanha</span>' : ''}
+    </div>
     <ul class="ing-list">
-      ${r.ingredients.map((ing, i) => `
+      ${ingredientesEscalados(r, fator).map((ing, i) => `
         <li>
           <div class="ing-box ${checked[id].has(i) ? 'on' : ''}" onclick="toggleIng(${id},${i},this)"></div>
           <span class="ing-text ${checked[id].has(i) ? 'done' : ''}" id="it-${id}-${i}">${esc(ing)}</span>
@@ -808,7 +907,10 @@ function openRecipe(id) {
       ${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}
     </ol>
     <div class="action-row">
-      <button class="btn-green" onclick="toggleCart(${id})">
+      ${r.steps && r.steps.length ? `<button class="btn-green" onclick="entrarCozinha(${id})">
+        <i class="ti ti-flame"></i> Modo cozinha
+      </button>` : ''}
+      <button class="btn-outline" onclick="toggleCart(${id})">
         <i class="ti ti-${inCart ? 'minus' : 'plus'}"></i>
         ${inCart ? 'Remover da lista de compras' : 'Adicionar à lista de compras'}
       </button>
@@ -838,6 +940,166 @@ function toggleCart(id) {
 
 function closeRecipe() { document.getElementById('recipeOverlay').classList.remove('open'); }
 
+// ── MODO COZINHA ─────────────────────────────────────────────────────────
+// Um passo por vez, texto grande e tela acesa. O modal comum é uma parede de
+// texto rolável, o que não serve para quem está com a mão ocupada no fogão.
+
+let cookReceita = null, cookPasso = 0, wakeLock = null;
+
+async function segurarTela() {
+  try {
+    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) { /* recusado ou sem suporte: o modo segue funcionando */ }
+}
+
+async function soltarTela() {
+  try { if (wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {}
+}
+
+// O navegador solta o bloqueio quando a aba perde o foco; ao voltar, retoma.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && cookReceita && !wakeLock) segurarTela();
+});
+
+function entrarCozinha(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r || !r.steps || !r.steps.length) return;
+  cookReceita = r;
+  cookPasso = 0;
+  document.getElementById('cookTitulo').textContent = r.emoji + '  ' + r.name;
+  document.getElementById('cookMode').classList.add('open');
+  renderPasso();
+  segurarTela();
+}
+
+function sairCozinha() {
+  document.getElementById('cookMode').classList.remove('open');
+  cookReceita = null;
+  soltarTela();
+  // O cronômetro continua: ele costuma valer além da receita aberta.
+}
+
+function renderPasso() {
+  if (!cookReceita) return;
+  const total = cookReceita.steps.length;
+  const texto = cookReceita.steps[cookPasso];
+  const ings = ingredientesDoPasso(cookReceita, texto);
+  const segundos = detectarTempo(texto);
+
+  document.getElementById('cookBarra').style.width = ((cookPasso + 1) / total * 100) + '%';
+  document.getElementById('cookCorpo').innerHTML = `
+    <div class="cook-conta">Passo ${cookPasso + 1} de ${total}</div>
+    <p class="cook-passo">${esc(texto)}</p>
+    ${segundos ? `<button class="timer-btn" onclick="iniciarTimer(${segundos})">
+        <i class="ti ti-alarm"></i> Marcar ${rotuloTempo(segundos)}</button>` : ''}
+    ${ings.length ? `<div class="cook-ings">
+        <div class="section-label">Ingredientes deste passo</div>
+        <ul>${ings.map(i => `<li>${esc(i)}</li>`).join('')}</ul>
+      </div>` : ''}
+  `;
+  document.getElementById('cookPrev').disabled = cookPasso === 0;
+  const next = document.getElementById('cookNext');
+  next.innerHTML = cookPasso === total - 1
+    ? 'Concluir <i class="ti ti-check"></i>'
+    : 'Próximo <i class="ti ti-arrow-right"></i>';
+  document.querySelector('.cook-body').scrollTop = 0;
+}
+
+function passoAnterior() { if (cookPasso > 0) { cookPasso--; renderPasso(); } }
+function passoSeguinte() {
+  if (!cookReceita) return;
+  if (cookPasso < cookReceita.steps.length - 1) { cookPasso++; renderPasso(); }
+  else sairCozinha();
+}
+
+// Reconhece "15 minutos", "8-10 min", "±20 minutos", "1 hora". Em intervalos
+// vale o menor número: é quando faz sentido ir conferir a panela.
+const RE_TEMPO = /(?:±\s*)?(\d+)(?:\s*[-–a]\s*\d+)?\s*(minutos?|min|horas?|h|segundos?|seg)\b/i;
+
+function detectarTempo(texto) {
+  const m = String(texto).match(RE_TEMPO);
+  if (!m) return 0;
+  const n = parseInt(m[1], 10);
+  const u = m[2].toLowerCase();
+  if (u.startsWith('h')) return n * 3600;
+  if (u.startsWith('seg')) return n;
+  return n * 60;
+}
+
+function rotuloTempo(s) {
+  if (s >= 3600) { const h = s / 3600; return h === 1 ? '1 hora' : h + ' horas'; }
+  if (s >= 60) { const m = s / 60; return m === 1 ? '1 minuto' : m + ' minutos'; }
+  return s + ' segundos';
+}
+
+// Casa os ingredientes da receita com o texto do passo, para não precisar
+// rolar de volta no meio do preparo.
+function ingredientesDoPasso(r, texto) {
+  if (!window.Ingredientes) return [];
+  const alvo = Ingredientes.semAcento(String(texto).toLowerCase());
+  const contem = (frase, termo) =>
+    new RegExp('(^|[^a-z0-9])' + termo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)').test(frase);
+
+  // Escalado, para o modo cozinha mostrar a mesma quantidade da receita aberta.
+  return ingredientesEscalados(r, multiplicadorDe(r.id)).filter(linha =>
+    Ingredientes.interpretar(linha).some(e => {
+      const nome = Ingredientes.semAcento(e.nome);
+      if (!nome) return false;
+      if (contem(alvo, nome)) return true;
+      const cabeca = nome.split(' ')[0];
+      return cabeca.length >= 4 && contem(alvo, cabeca);
+    })
+  );
+}
+
+// ── CRONÔMETRO ───────────────────────────────────────────────────────────
+let timerFim = 0, timerId = null;
+
+function iniciarTimer(segundos) {
+  timerFim = Date.now() + segundos * 1000;
+  document.getElementById('timerChip').classList.add('show');
+  document.getElementById('timerChip').classList.remove('tocando');
+  clearInterval(timerId);
+  timerId = setInterval(tickTimer, 250);
+  tickTimer();
+}
+
+function tickTimer() {
+  const restante = Math.max(0, Math.round((timerFim - Date.now()) / 1000));
+  const mm = String(Math.floor(restante / 60)).padStart(2, '0');
+  const ss = String(restante % 60).padStart(2, '0');
+  document.getElementById('timerTexto').textContent = mm + ':' + ss;
+  if (restante === 0) {
+    clearInterval(timerId); timerId = null;
+    document.getElementById('timerChip').classList.add('tocando');
+    document.getElementById('timerTexto').textContent = 'Pronto!';
+    avisar();
+  }
+}
+
+function pararTimer() {
+  clearInterval(timerId); timerId = null;
+  document.getElementById('timerChip').classList.remove('show', 'tocando');
+}
+
+function avisar() {
+  if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]);
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.5, 1].forEach(atraso => {
+      const osc = ctx.createOscillator(), vol = ctx.createGain();
+      osc.connect(vol); vol.connect(ctx.destination);
+      osc.frequency.value = 880;
+      vol.gain.setValueAtTime(0.0001, ctx.currentTime + atraso);
+      vol.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + atraso + 0.02);
+      vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + atraso + 0.32);
+      osc.start(ctx.currentTime + atraso);
+      osc.stop(ctx.currentTime + atraso + 0.35);
+    });
+    setTimeout(() => ctx.close(), 2200);
+  } catch (e) { /* sem áudio disponível */ }
+}
+
 function deleteUserRecipe(id) {
   if (!confirm('Excluir esta receita? Essa ação não pode ser desfeita.')) return;
   userRecipes = userRecipes.filter(r => r.id !== id);
@@ -862,9 +1124,8 @@ try { secoesFechadas = new Set(JSON.parse(localStorage.getItem('secoesFechadas')
 function saveSecoesFechadas() { localStorage.setItem('secoesFechadas', JSON.stringify([...secoesFechadas])); }
 
 function secoesDoCarrinho() {
-  const selecionadas = [...cart].map(id => recipes.find(r => r.id === id)).filter(Boolean);
   if (!window.Ingredientes) return null;      // ingredientes.js não carregou
-  return Ingredientes.montarLista(selecionadas);
+  return Ingredientes.montarLista(receitasDoCarrinho());
 }
 
 function openCart() {
@@ -1077,6 +1338,15 @@ document.getElementById('recipeOverlay').addEventListener('click', function(e) {
 document.getElementById('cartOverlay').addEventListener('click', function(e) { if (e.target===this) closeCart(); });
 document.getElementById('formOverlay').addEventListener('click', function(e) { if (e.target===this) closeForm(); });
 document.getElementById('authOverlay').addEventListener('click', function(e) { if (e.target===this) closeAuth(); });
+
+// No computador, setas passam o passo e Esc sai. No celular valem os botões,
+// que são grandes de propósito.
+document.addEventListener('keydown', e => {
+  if (!cookReceita) return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); passoSeguinte(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); passoAnterior(); }
+  else if (e.key === 'Escape') sairCozinha();
+});
 
 renderTabs(); render(); updateFab();
 

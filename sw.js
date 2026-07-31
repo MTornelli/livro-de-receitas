@@ -1,4 +1,4 @@
-const CACHE_NAME = 'receitas-v3';
+const CACHE_NAME = 'receitas-v5';
 
 const APP_SHELL = [
   './',
