@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico da sincronização</title>
+<script src="../vendor/supabase.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #fafaf9; --card: #ffffff; --text: #1c1c1b; --dim: #6b6b69;
+    --line: rgba(0,0,0,0.1); --green: #1D9E75; --green-bg: #E1F5EE;
+    --red: #c0392b; --red-bg: #fdecea; --amber: #BA7517; --amber-bg: #FAEEDA;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --card: #1e1e1c; --text: #f0ede8; --dim: #9a9893;
+      --line: rgba(255,255,255,0.1); --green-bg: #063d2c; --green: #5dcaa5;
+      --red-bg: #3d1512; --red: #f08a7e; --amber-bg: #3d2800; --amber: #EF9F27;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.5; padding: 2rem 1.25rem 4rem; }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+  .sub { color: var(--dim); font-size: 14px; margin-bottom: 1.75rem; }
+  .check { background: var(--card); border: 0.5px solid var(--line); border-radius: 10px;
+           padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; align-items: flex-start; }
+  .mark { font-size: 17px; line-height: 1.35; flex-shrink: 0; }
+  .check h3 { font-size: 14.5px; font-weight: 600; margin-bottom: 3px; }
+  .check p { font-size: 13.5px; color: var(--dim); }
+  .check code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+                background: var(--bg); padding: 1px 5px; border-radius: 4px; word-break: break-all; }
+  .check.ok    { border-color: var(--green); }
+  .check.bad   { border-color: var(--red); background: var(--red-bg); }
+  .check.warn  { border-color: var(--amber); background: var(--amber-bg); }
+  .fix { margin-top: 7px; font-size: 13px; color: var(--text); }
+  .panel { background: var(--card); border: 0.5px solid var(--line); border-radius: 10px;
+           padding: 18px; margin-top: 1.5rem; }
+  .panel h2 { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+  input { width: 100%; padding: 9px 12px; border-radius: 8px; border: 0.5px solid var(--line);
+          background: var(--bg); color: var(--text); font-size: 14px; margin-bottom: 9px; }
+  button { padding: 9px 18px; background: var(--green); color: #fff; border: none;
+           border-radius: 8px; font-size: 14px; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--text); border: 0.5px solid var(--line); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .note { font-size: 13px; color: var(--dim); margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Diagnóstico da sincronização</h1>
+  <p class="sub">Verifica, uma a uma, as peças que a sincronização precisa. Sirva por HTTP — abrir por <code>file://</code> não funciona.</p>
+
+  <div id="results"></div>
+  <div id="panel"></div>
+</div>
+
+<script>
+const results = document.getElementById('results');
+const panel = document.getElementById('panel');
+let cfg = {}, sb = null, anon = null, session = null;
+
+function add(state, title, detail, fix) {
+  const mark = state === 'ok' ? '✅' : state === 'bad' ? '❌' : state === 'warn' ? '⚠️' : '⏳';
+  const el = document.createElement('div');
+  el.className = 'check ' + state;
+  el.innerHTML = `<div class="mark">${mark}</div><div><h3>${title}</h3>
+    ${detail ? `<p>${detail}</p>` : ''}${fix ? `<div class="fix">${fix}</div>` : ''}</div>`;
+  results.appendChild(el);
+  return el;
+}
+
+async function run() {
+  // 1 ── credenciais preenchidas no index.html
+  try {
+    const src = await fetch('../index.html').then(r => r.text());
+    cfg.url = (src.match(/const SUPABASE_URL\s*=\s*'([^']*)'/) || [])[1] || '';
+    cfg.key = (src.match(/const SUPABASE_ANON_KEY\s*=\s*'([^']*)'/) || [])[1] || '';
+  } catch (e) {
+    return add('bad', 'Não consegui ler o index.html', e.message,
+      'Sirva a pasta do projeto por HTTP: <code>python3 -m http.server 8000</code> e abra <code>http://localhost:8000/supabase/diagnostico.html</code>');
+  }
+
+  if (!cfg.url || !cfg.key) {
+    return add('bad', 'Credenciais não preenchidas', 'As constantes no topo do <code>index.html</code> estão vazias.',
+      'Preencha <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> com os dados de Project Settings → API.');
+  }
+  add('ok', 'Credenciais encontradas no index.html', `Projeto: <code>${cfg.url}</code>`);
+
+  // 2 ── a chave é mesmo a anon?
+  try {
+    const payload = JSON.parse(atob(cfg.key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+    if (payload.role === 'anon') {
+      add('ok', 'A chave é a anon', 'Correta — é a chave pública, protegida pelo RLS.');
+    } else {
+      add('bad', `A chave é "${payload.role}", não a anon`, 'A <code>service_role</code> ignora o RLS por completo.',
+        '<strong>Troque agora</strong> pela chave <code>anon</code> e gere novas chaves no painel, porque essa já foi exposta.');
+    }
+  } catch (e) {
+    add('warn', 'Não consegui decodificar a chave', 'Pode ser uma chave em formato novo (publishable), o que é normal.');
+  }
+
+  // 3 ── biblioteca carregada
+  if (!window.supabase) {
+    return add('bad', 'A biblioteca do Supabase não carregou', 'Esperava encontrá-la em <code>../vendor/supabase.js</code>.',
+      'Confirme que a pasta <code>vendor/</code> existe no projeto.');
+  }
+  add('ok', 'Biblioteca do Supabase carregada', 'Servida localmente, sem depender de CDN.');
+
+  sb = window.supabase.createClient(cfg.url, cfg.key);
+  // cliente propositalmente anônimo, para comparar o que um estranho enxerga
+  anon = window.supabase.createClient(cfg.url, cfg.key, {
+    auth: { persistSession: false, autoRefreshToken: false, storageKey: 'diag-anon' }
+  });
+
+  // 4 ── a tabela existe e responde
+  const probe = await anon.from('recipes').select('id').limit(1);
+  if (probe.error) {
+    const msg = probe.error.message || '';
+    if (/does not exist|schema cache|relation/i.test(msg)) {
+      return add('bad', 'A tabela recipes não existe', `<code>${msg}</code>`,
+        'Rode o <code>supabase/schema.sql</code> inteiro no SQL Editor do projeto.');
+    }
+    if (/JWT|apikey|Invalid/i.test(msg)) {
+      return add('bad', 'Credenciais recusadas pelo Supabase', `<code>${msg}</code>`,
+        'Confira se a URL e a chave são do mesmo projeto.');
+    }
+    return add('bad', 'A tabela respondeu com erro', `<code>${msg}</code>`);
+  }
+  add('ok', 'Tabela recipes existe e responde', 'A API REST do projeto está acessível.');
+
+  // 5 ── sessão
+  session = (await sb.auth.getSession()).data.session;
+  if (session) {
+    add('ok', 'Você está logado', `Como <code>${session.user.email}</code>`);
+  } else {
+    add('warn', 'Você ainda não está logado', 'Os testes de leitura e escrita precisam de sessão.',
+      'Use o painel abaixo para receber o link de acesso.');
+  }
+
+  renderPanel();
+  if (session) await runAuthedChecks();
+}
+
+async function runAuthedChecks() {
+  // 6 ── leitura autenticada
+  const mine = await sb.from('recipes').select('*');
+  if (mine.error) {
+    return add('bad', 'Não consegui ler suas receitas', `<code>${mine.error.message}</code>`,
+      'Provavelmente falta a policy de SELECT. Rode o <code>schema.sql</code> de novo.');
+  }
+  add('ok', `Leitura funcionando — ${mine.data.length} receita(s) na nuvem`,
+    mine.data.length ? mine.data.slice(0, 5).map(r => r.name).join(' · ') : 'A tabela está vazia por enquanto.');
+
+  // 7 ── escrita: grava, lê de volta e apaga
+  const marker = 'diagnostico-' + Date.now();
+  const ins = await sb.from('recipes').insert({
+    user_id: session.user.id, local_id: marker, name: 'Receita de teste do diagnóstico',
+    emoji: '🧪', category: 'Minhas receitas', time_label: '1 min',
+    description: 'Criada e apagada automaticamente', ingredients: ['nada'], steps: ['nada']
+  });
+  if (ins.error) {
+    add('bad', 'Não consegui gravar na nuvem', `<code>${ins.error.message}</code>`,
+      'Falta a policy de INSERT, ou o RLS está barrando. Rode o <code>schema.sql</code> de novo.');
+  } else {
+    add('ok', 'Escrita funcionando', 'Uma receita de teste foi gravada com sucesso.');
+
+    // 8 ── o teste que mais importa: um estranho consegue ver?
+    const seen = await anon.from('recipes').select('local_id').eq('local_id', marker);
+    if (!seen.error && seen.data && seen.data.length > 0) {
+      add('bad', 'RLS NÃO está protegendo suas receitas',
+        'Um cliente sem login conseguiu ler a receita de teste. Qualquer pessoa com a chave (que é pública) lê e altera tudo.',
+        'Rode a parte final do <code>schema.sql</code>, das linhas <code>alter table ... enable row level security</code> em diante.');
+    } else {
+      add('ok', 'RLS protegendo corretamente',
+        'Um cliente sem login não enxerga suas receitas — que é exatamente o esperado.');
+    }
+
+    const del = await sb.from('recipes').delete().eq('local_id', marker).eq('user_id', session.user.id);
+    add(del.error ? 'bad' : 'ok',
+      del.error ? 'Não consegui apagar a receita de teste' : 'Exclusão funcionando',
+      del.error ? `<code>${del.error.message}</code> — apague manualmente a receita <code>${marker}</code>`
+                : 'A receita de teste foi removida. Nada ficou para trás.');
+  }
+
+  add('ok', 'Diagnóstico concluído', 'Se tudo acima está verde, a sincronização está no ar. Abra o app e teste no celular.');
+}
+
+function renderPanel() {
+  if (session) {
+    panel.innerHTML = `<div class="panel"><h2>Sessão</h2>
+      <p class="note">Conectado como <code>${session.user.email}</code>.</p>
+      <div class="row" style="margin-top:10px">
+        <button class="ghost" onclick="location.reload()">Rodar de novo</button>
+        <button class="ghost" onclick="sair()">Sair</button>
+      </div></div>`;
+  } else {
+    panel.innerHTML = `<div class="panel"><h2>Entrar para testar</h2>
+      <input type="email" id="mail" placeholder="seu@email.com" autocomplete="email">
+      <div class="row"><button id="send" onclick="enviar()">Enviar link de acesso</button></div>
+      <p class="note" id="msg">O link precisa ser aberto <strong>neste mesmo navegador</strong>. Se der erro de <em>redirect not allowed</em>, falta cadastrar este endereço em Authentication → URL Configuration.</p>
+    </div>`;
+  }
+}
+
+async function enviar() {
+  const email = document.getElementById('mail').value.trim();
+  const msg = document.getElementById('msg'), btn = document.getElementById('send');
+  if (!email) return;
+  btn.disabled = true; msg.textContent = 'Enviando…';
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href.split('#')[0] } });
+  btn.disabled = false;
+  msg.innerHTML = error
+    ? `<strong>Erro:</strong> <code>${error.message}</code>`
+    : `Link enviado para <code>${email}</code>. Abra o e-mail neste navegador — a página recarrega já logada.`;
+}
+
+async function sair() { await sb.auth.signOut(); location.reload(); }
+
+run().catch(e => add('bad', 'O diagnóstico quebrou', e.message));
+</script>
+</body>
+</html>
