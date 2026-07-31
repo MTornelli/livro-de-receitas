@@ -1,9 +1,10 @@
-const CACHE_NAME = 'receitas-v2';
+const CACHE_NAME = 'receitas-v3';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './ingredientes.js',
   './vendor/supabase.js',
   './vendor/591.supabase.js',
   './icons/icon-192.png',

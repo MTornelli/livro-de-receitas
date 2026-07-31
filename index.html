@@ -10,6 +10,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
 <script src="vendor/supabase.js" defer></script>
+<script src="ingredientes.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -119,6 +120,20 @@
   .sl-item input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
   .sl-item label { flex: 1; cursor: pointer; }
   .sl-from { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+  .sl-vazio { color: var(--text-secondary); font-size: 14px; padding: 1rem 0; }
+  .sl-qtd { font-weight: 600; color: var(--green-dark); }
+  .ing-text.done .sl-qtd { color: inherit; }
+  .sec-block { border: 0.5px solid var(--border-light); border-radius: var(--radius-md); margin-bottom: 8px; overflow: hidden; background: var(--bg-primary); }
+  .sec-head { width: 100%; display: flex; align-items: center; gap: 9px; padding: 11px 13px; background: none; border: none; cursor: pointer; color: var(--text-primary); font-size: 14px; font-family: inherit; text-align: left; }
+  .sec-head:hover { background: var(--bg-secondary); }
+  .sec-emoji { font-size: 17px; line-height: 1; }
+  .sec-nome { flex: 1; font-weight: 500; }
+  .sec-contagem { font-size: 11px; color: var(--text-secondary); background: var(--bg-secondary); padding: 2px 8px; border-radius: 10px; }
+  .sec-head i { font-size: 15px; color: var(--text-secondary); }
+  .sec-itens { padding: 0 13px 6px; }
+  .sec-itens .sl-item:last-child { border-bottom: none; }
+  .sec-block.completa .sec-emoji, .sec-block.completa .sec-nome { opacity: 0.45; }
+  .sec-block.completa .sec-contagem { background: var(--green-light); color: var(--green-dark); opacity: 1; }
   .empty { text-align: center; padding: 4rem 1rem; color: var(--text-secondary); grid-column: 1 / -1; }
   .empty i { font-size: 40px; display: block; margin-bottom: 10px; opacity: 0.35; }
   #installBtn { display: none; }
@@ -201,8 +216,7 @@
       </div>
       <button class="close-btn" onclick="closeCart()"><i class="ti ti-x"></i></button>
     </div>
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem">Ingredientes consolidados de todas as receitas selecionadas. Marque o que você já tem em casa.</p>
-    <div class="section-label">Ingredientes</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1.25rem">Ingredientes somados de todas as receitas selecionadas e agrupados por seção do mercado. Toque num bloco para abrir ou fechar, e marque o que já tem em casa.</p>
     <div id="shoppingList"></div>
     <div class="action-row">
       <button class="btn-green" onclick="copyList()"><i class="ti ti-copy"></i> Copiar lista</button>
@@ -841,38 +855,96 @@ function updateFab() {
   document.getElementById('cartFab').classList.toggle('show', cart.size > 0);
 }
 
+// Quais blocos estão recolhidos. Fica no aparelho porque é preferência de
+// leitura, não dado de receita.
+let secoesFechadas = new Set();
+try { secoesFechadas = new Set(JSON.parse(localStorage.getItem('secoesFechadas') || '[]')); } catch(e) {}
+function saveSecoesFechadas() { localStorage.setItem('secoesFechadas', JSON.stringify([...secoesFechadas])); }
+
+function secoesDoCarrinho() {
+  const selecionadas = [...cart].map(id => recipes.find(r => r.id === id)).filter(Boolean);
+  if (!window.Ingredientes) return null;      // ingredientes.js não carregou
+  return Ingredientes.montarLista(selecionadas);
+}
+
 function openCart() {
-  const map = {};
-  cart.forEach(id => {
-    const r = recipes.find(x => x.id === id);
-    if (!r) return;
-    r.ingredients.forEach(ing => {
-      const key = ing.toLowerCase().trim();
-      if (!map[key]) map[key] = { ing, from: [] };
-      map[key].from.push(r.name);
-    });
-  });
-  const items = Object.values(map);
-  document.getElementById('shoppingList').innerHTML = items.length
-    ? items.map((item, i) => {
-        const key = item.ing.toLowerCase().trim();
-        const isHome = !!haveAtHome[key];
-        return `
-      <div class="sl-item">
-        <input type="checkbox" id="sl${i}" data-key="${esc(key)}" ${isHome ? 'checked' : ''}>
-        <label for="sl${i}" class="ing-text ${isHome ? 'done' : ''}">${esc(item.ing)}</label>
-        <span class="sl-from">${item.from.length > 1 ? item.from.length + ' receitas' : esc(item.from[0])}</span>
-      </div>`;
-      }).join('')
-    : '<p style="color:var(--text-secondary);font-size:14px;padding:1rem 0">Nenhuma receita selecionada ainda.</p>';
-  document.querySelectorAll('#shoppingList input[type=checkbox]').forEach(cb => {
+  renderShoppingList();
+  document.getElementById('cartOverlay').classList.add('open');
+}
+
+function renderShoppingList() {
+  const alvo = document.getElementById('shoppingList');
+  const secoes = secoesDoCarrinho();
+
+  if (secoes === null) {
+    alvo.innerHTML = '<p class="sl-vazio">Não consegui carregar o agrupamento de ingredientes. Recarregue a página.</p>';
+    return;
+  }
+  if (!secoes.length) {
+    alvo.innerHTML = '<p class="sl-vazio">Nenhuma receita selecionada ainda.</p>';
+    return;
+  }
+
+  alvo.innerHTML = secoes.map(s => {
+    const fechada = secoesFechadas.has(s.id);
+    const marcados = s.itens.filter(i => haveAtHome[i.chave]).length;
+    return `
+    <div class="sec-block ${marcados === s.itens.length ? 'completa' : ''}" data-sec="${s.id}">
+      <button type="button" class="sec-head" onclick="toggleSecao('${s.id}')"
+              aria-expanded="${!fechada}">
+        <span class="sec-emoji">${s.emoji}</span>
+        <span class="sec-nome">${esc(s.nome)}</span>
+        <span class="sec-contagem">${marcados}/${s.itens.length}</span>
+        <i class="ti ti-chevron-${fechada ? 'right' : 'down'}"></i>
+      </button>
+      <div class="sec-itens"${fechada ? ' hidden' : ''}>
+        ${s.itens.map(itemHtml).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  alvo.querySelectorAll('input[type=checkbox]').forEach(cb => {
     cb.addEventListener('change', () => {
       haveAtHome[cb.dataset.key] = cb.checked;
-      cb.nextElementSibling.classList.toggle('done', cb.checked);
       saveHaveAtHome();
+      cb.parentElement.querySelector('label').classList.toggle('done', cb.checked);
+      // Atualiza só os contadores, para a lista não pular sob o dedo de quem
+      // está no mercado marcando item por item.
+      atualizarContagens();
     });
   });
-  document.getElementById('cartOverlay').classList.add('open');
+}
+
+function itemHtml(i) {
+  const marcado = !!haveAtHome[i.chave];
+  const id = 'sl-' + i.chave.replace(/[^a-z0-9]+/gi, '-');
+  const origem = i.receitas.length > 1 ? i.receitas.length + ' receitas' : i.receitas[0];
+  return `
+  <div class="sl-item">
+    <input type="checkbox" id="${esc(id)}" data-key="${esc(i.chave)}" ${marcado ? 'checked' : ''}>
+    <label for="${esc(id)}" class="ing-text ${marcado ? 'done' : ''}">${
+      i.quantidade ? `<strong class="sl-qtd">${esc(i.quantidade)}</strong> ` : ''
+    }${esc(i.nome)}</label>
+    <span class="sl-from">${esc(origem)}</span>
+  </div>`;
+}
+
+function atualizarContagens() {
+  const secoes = secoesDoCarrinho() || [];
+  secoes.forEach(s => {
+    const bloco = document.querySelector(`.sec-block[data-sec="${s.id}"]`);
+    if (!bloco) return;
+    const marcados = s.itens.filter(i => haveAtHome[i.chave]).length;
+    bloco.querySelector('.sec-contagem').textContent = `${marcados}/${s.itens.length}`;
+    bloco.classList.toggle('completa', marcados === s.itens.length);
+  });
+}
+
+function toggleSecao(id) {
+  if (secoesFechadas.has(id)) secoesFechadas.delete(id);
+  else secoesFechadas.add(id);
+  saveSecoesFechadas();
+  renderShoppingList();
 }
 
 function closeCart() { document.getElementById('cartOverlay').classList.remove('open'); }
@@ -880,13 +952,16 @@ function closeCart() { document.getElementById('cartOverlay').classList.remove('
 function clearCart() { cart.clear(); saveCart(); updateFab(); render(); closeCart(); }
 
 function copyList() {
-  const lines = ['🛒 Lista de compras\n'];
-  cart.forEach(id => {
-    const r = recipes.find(x => x.id === id);
-    if (!r) return;
-    lines.push(`\n📌 ${r.name}:`);
-    r.ingredients.forEach(i => lines.push(`  • ${i}`));
+  const secoes = secoesDoCarrinho() || [];
+  const lines = ['🛒 Lista de compras'];
+  secoes.forEach(s => {
+    // O que já está marcado como "tenho em casa" não precisa ir ao mercado.
+    const faltando = s.itens.filter(i => !haveAtHome[i.chave]);
+    if (!faltando.length) return;
+    lines.push(`\n${s.emoji} ${s.nome}`);
+    faltando.forEach(i => lines.push(`  • ${i.quantidade ? i.quantidade + ' — ' : ''}${i.nome}`));
   });
+  if (lines.length === 1) lines.push('\nNada a comprar — está tudo marcado como disponível em casa.');
   navigator.clipboard.writeText(lines.join('\n')).then(() => {
     const btn = document.querySelector('#cartOverlay .btn-green');
     const orig = btn.innerHTML;
