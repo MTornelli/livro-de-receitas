@@ -308,7 +308,7 @@ function montarLista(receitas) {
     .filter(s => s.itens.length);
 }
 
-const API = { interpretar, montarLista, formatarQuantidade, canonizar, classificar, SECOES };
+const API = { interpretar, montarLista, formatarQuantidade, canonizar, classificar, semAcento, SECOES };
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else root.Ingredientes = API;
 
