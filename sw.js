@@ -1,9 +1,11 @@
-const CACHE_NAME = 'receitas-v1';
+const CACHE_NAME = 'receitas-v2';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './vendor/supabase.js',
+  './vendor/591.supabase.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
@@ -31,6 +33,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // O Supabase precisa ir sempre à rede. A estratégia abaixo é cache-first, e
+  // aplicá-la à API devolveria receitas desatualizadas (ou uma sessão vencida)
+  // mesmo com o aparelho online.
+  const url = new URL(event.request.url);
+  if (url.hostname.endsWith('.supabase.co')) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

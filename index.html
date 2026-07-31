@@ -9,6 +9,7 @@
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<script src="vendor/supabase.js" defer></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -90,6 +91,19 @@
   .btn-outline:hover { background: var(--bg-primary); }
   .icon-btn { background: var(--bg-secondary); border: 0.5px solid var(--border-mid); border-radius: var(--radius-md); width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); flex-shrink: 0; font-size: 15px; }
   .icon-btn:hover { border-color: var(--green); color: var(--green); }
+  .sync-pill { display: none; align-items: center; gap: 5px; font-size: 12px; padding: 5px 10px; border-radius: 20px; background: var(--bg-secondary); color: var(--text-secondary); border: 0.5px solid var(--border-light); white-space: nowrap; }
+  .sync-pill.show { display: inline-flex; }
+  .sync-pill.ok { background: var(--green-light); color: var(--green-dark); border-color: transparent; }
+  .sync-pill.error { background: var(--amber-light); color: var(--amber); border-color: transparent; }
+  .sync-pill i { font-size: 14px; }
+  .sync-pill.syncing i { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .auth-msg { font-size: 13px; border-radius: var(--radius-md); padding: 9px 12px; margin-bottom: 1rem; line-height: 1.5; }
+  .auth-msg.ok { background: var(--green-light); color: var(--green-dark); }
+  .auth-msg.error { background: var(--amber-light); color: var(--amber); }
+  .auth-hint { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 1.25rem; }
+  .auth-account { font-size: 13px; color: var(--text-secondary); margin-bottom: 1.25rem; line-height: 1.6; word-break: break-all; }
+  .auth-account strong { color: var(--text-primary); font-weight: 500; }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
   .field input, .field textarea { width: 100%; padding: 9px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border-mid); background: var(--bg-primary); color: var(--text-primary); font-size: 14px; font-family: inherit; outline: none; resize: vertical; }
@@ -124,6 +138,8 @@
     <button class="icon-btn" title="Importar receitas" onclick="document.getElementById('importFile').click()"><i class="ti ti-upload"></i></button>
     <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importRecipes(event)">
     <button class="btn-outline" id="installBtn" onclick="installApp()"><i class="ti ti-device-mobile-plus"></i> Instalar app</button>
+    <button class="btn-outline" id="authBtn" style="display:none" onclick="openAuth()"><i class="ti ti-cloud"></i> <span id="authLabel">Sincronizar</span></button>
+    <span class="sync-pill" id="syncPill"><i class="ti ti-cloud-check"></i><span id="syncPillText"></span></span>
   </div>
 
   <div class="controls">
@@ -144,6 +160,36 @@
 
 <div class="overlay" id="recipeOverlay">
   <div class="modal" id="recipeContent"></div>
+</div>
+
+<div class="overlay" id="authOverlay">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-emoji">☁️</div>
+        <h2 id="authTitle">Sincronizar receitas</h2>
+      </div>
+      <button class="close-btn" onclick="closeAuth()"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="authMsg"></div>
+
+    <div id="authSignedOut">
+      <p class="auth-hint">Entre com seu e-mail para que suas receitas fiquem disponíveis em todos os seus aparelhos. Enviamos um link de acesso — não precisa de senha.</p>
+      <form id="authForm" onsubmit="return sendMagicLink(event)">
+        <div class="field">
+          <label for="auth-email">Seu e-mail</label>
+          <input type="email" id="auth-email" required placeholder="voce@exemplo.com" autocomplete="email">
+        </div>
+        <button type="submit" class="btn-green" id="authSubmit" style="width:100%;justify-content:center"><i class="ti ti-mail"></i> Enviar link de acesso</button>
+      </form>
+    </div>
+
+    <div id="authSignedIn" style="display:none">
+      <p class="auth-account">Conectado como <strong id="authEmail"></strong>. Suas receitas são salvas na nuvem automaticamente.</p>
+      <button class="btn-outline" style="width:100%;justify-content:center" onclick="syncNow()"><i class="ti ti-refresh"></i> Sincronizar agora</button>
+      <button class="btn-outline" style="width:100%;justify-content:center;margin-top:8px" onclick="signOut()"><i class="ti ti-logout"></i> Sair</button>
+    </div>
+  </div>
 </div>
 
 <div class="overlay" id="cartOverlay">
@@ -219,6 +265,20 @@
 </div>
 
 <script>
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  CONFIGURAÇÃO DO SUPABASE                                                ║
+// ║                                                                          ║
+// ║  Preencha com os dados do seu projeto (Project Settings → API).          ║
+// ║  Use a chave *anon / publishable* — ela é pública por natureza e fica     ║
+// ║  protegida pelas políticas de RLS definidas em supabase/schema.sql.      ║
+// ║  NUNCA coloque aqui a chave service_role: ela ignora o RLS.              ║
+// ║                                                                          ║
+// ║  Deixando os dois campos vazios, o app funciona exatamente como antes,   ║
+// ║  salvando tudo só no aparelho.                                           ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+const SUPABASE_URL      = '';
+const SUPABASE_ANON_KEY = '';
+
 const builtInRecipes = [
 
 // ═══════════════════════════════════════════════════════════════
@@ -441,6 +501,195 @@ function saveChecked() {
 }
 function saveHaveAtHome() { localStorage.setItem('haveAtHome', JSON.stringify(haveAtHome)); }
 
+// ── SINCRONIZAÇÃO COM O SUPABASE ─────────────────────────────────────────
+// O localStorage continua sendo a fonte que a tela lê, o que mantém o app
+// utilizável offline. Quando há sessão, cada alteração também é enviada para a
+// nuvem e, ao abrir o app, a nuvem é baixada por cima do cache local.
+
+let sb = null;            // cliente do Supabase
+let currentUser = null;   // usuário autenticado, ou null
+
+function syncEnabled() { return !!(sb && currentUser); }
+
+function setSyncStatus(state, text) {
+  const pill = document.getElementById('syncPill');
+  const icon = pill.querySelector('i');
+  pill.className = 'sync-pill show ' + state;
+  icon.className = 'ti ' + (
+    state === 'syncing' ? 'ti-loader-2' :
+    state === 'error'   ? 'ti-cloud-exclamation' : 'ti-cloud-check'
+  );
+  document.getElementById('syncPillText').textContent = text;
+}
+
+function hideSyncStatus() { document.getElementById('syncPill').className = 'sync-pill'; }
+
+// Converte uma linha do banco no formato que o app usa na tela.
+function rowToRecipe(row) {
+  return {
+    id: Number(row.local_id),
+    emoji: row.emoji,
+    name: row.name,
+    category: row.category,
+    time: row.time_label,
+    desc: row.description || '',
+    ingredients: Array.isArray(row.ingredients) ? row.ingredients : [],
+    steps: Array.isArray(row.steps) ? row.steps : []
+  };
+}
+
+// E o caminho inverso, para gravar.
+function recipeToRow(r) {
+  return {
+    user_id: currentUser.id,
+    local_id: String(r.id),
+    emoji: r.emoji || '🍽️',
+    name: r.name,
+    category: r.category || 'Minhas receitas',
+    time_label: r.time || '—',
+    description: r.desc || '',
+    ingredients: r.ingredients || [],
+    steps: r.steps || []
+  };
+}
+
+async function initSync() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;   // app segue 100% local
+  if (!window.supabase) {                            // CDN indisponível / offline
+    console.warn('Biblioteca do Supabase não carregou; seguindo apenas com armazenamento local.');
+    return;
+  }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  document.getElementById('authBtn').style.display = 'inline-flex';
+
+  const { data } = await sb.auth.getSession();
+  await applySession(data.session);
+  sb.auth.onAuthStateChange((_event, session) => { applySession(session); });
+}
+
+async function applySession(session) {
+  const user = session ? session.user : null;
+  const changed = (user && user.id) !== (currentUser && currentUser.id);
+  currentUser = user;
+  updateAuthUI();
+  if (user && changed) await pullFromCloud({ migrate: true });
+  if (!user) hideSyncStatus();
+}
+
+function updateAuthUI() {
+  const label = document.getElementById('authLabel');
+  const signedOut = document.getElementById('authSignedOut');
+  const signedIn = document.getElementById('authSignedIn');
+  if (currentUser) {
+    label.textContent = 'Nuvem';
+    signedOut.style.display = 'none';
+    signedIn.style.display = 'block';
+    document.getElementById('authEmail').textContent = currentUser.email || '—';
+    document.getElementById('authTitle').textContent = 'Receitas na nuvem';
+  } else {
+    label.textContent = 'Sincronizar';
+    signedOut.style.display = 'block';
+    signedIn.style.display = 'none';
+    document.getElementById('authTitle').textContent = 'Sincronizar receitas';
+  }
+}
+
+// Baixa as receitas da nuvem. Com migrate=true, primeiro envia as receitas que
+// só existiam neste aparelho — é o que salva o histórico do celular no primeiro
+// login. A migração só acontece se este cache local ainda não pertence a outra
+// conta, para que as receitas de uma pessoa não vazem para a de outra.
+async function pullFromCloud({ migrate = false } = {}) {
+  if (!syncEnabled()) return;
+  setSyncStatus('syncing', 'Sincronizando…');
+  try {
+    const previousOwner = localStorage.getItem('syncedUserId');
+    const canMigrate = migrate && userRecipes.length && (!previousOwner || previousOwner === currentUser.id);
+    if (canMigrate) {
+      const { error } = await sb.from('recipes')
+        .upsert(userRecipes.map(recipeToRow), { onConflict: 'user_id,local_id', ignoreDuplicates: true });
+      if (error) throw error;
+    }
+
+    const { data, error } = await sb.from('recipes').select('*').order('created_at', { ascending: true });
+    if (error) throw error;
+
+    userRecipes = data.map(rowToRecipe);
+    saveUserRecipes();
+    localStorage.setItem('syncedUserId', currentUser.id);
+    rebuildRecipes();
+    renderTabs(); render(); updateFab();
+    setSyncStatus('ok', 'Tudo sincronizado');
+  } catch (err) {
+    console.error('Falha ao sincronizar:', err);
+    setSyncStatus('error', 'Falha ao sincronizar');
+  }
+}
+
+async function pushRecipes(list) {
+  if (!syncEnabled() || !list.length) return;
+  setSyncStatus('syncing', 'Salvando…');
+  const { error } = await sb.from('recipes')
+    .upsert(list.map(recipeToRow), { onConflict: 'user_id,local_id' });
+  if (error) {
+    console.error('Falha ao salvar na nuvem:', error);
+    setSyncStatus('error', 'Não salvou na nuvem');
+  } else {
+    setSyncStatus('ok', 'Tudo sincronizado');
+  }
+}
+
+async function deleteRecipeFromCloud(id) {
+  if (!syncEnabled()) return;
+  setSyncStatus('syncing', 'Salvando…');
+  const { error } = await sb.from('recipes').delete()
+    .eq('user_id', currentUser.id).eq('local_id', String(id));
+  if (error) {
+    console.error('Falha ao excluir na nuvem:', error);
+    setSyncStatus('error', 'Não salvou na nuvem');
+  } else {
+    setSyncStatus('ok', 'Tudo sincronizado');
+  }
+}
+
+// ── AUTENTICAÇÃO ─────────────────────────────────────────────────────────
+function openAuth() { setAuthMsg(''); document.getElementById('authOverlay').classList.add('open'); }
+function closeAuth() { document.getElementById('authOverlay').classList.remove('open'); }
+
+function setAuthMsg(text, kind) {
+  const box = document.getElementById('authMsg');
+  box.innerHTML = text ? `<div class="auth-msg ${kind || 'ok'}">${esc(text)}</div>` : '';
+}
+
+async function sendMagicLink(event) {
+  event.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email || !sb) return false;
+
+  const btn = document.getElementById('authSubmit');
+  btn.disabled = true;
+  setAuthMsg('Enviando…');
+  // Sem o hash, para o link voltar direto na tela principal do app.
+  const redirectTo = window.location.href.split('#')[0];
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+  btn.disabled = false;
+
+  if (error) {
+    console.error(error);
+    setAuthMsg('Não consegui enviar o link: ' + error.message, 'error');
+  } else {
+    setAuthMsg('Link enviado para ' + email + '. Abra o e-mail neste mesmo aparelho para entrar.');
+  }
+  return false;
+}
+
+async function signOut() {
+  if (!sb) return;
+  await sb.auth.signOut();
+  setAuthMsg('Você saiu. As receitas continuam salvas neste aparelho.');
+}
+
+async function syncNow() { await pullFromCloud(); closeAuth(); }
+
 // ── HELPERS ──────────────────────────────────────────────────────────────
 function catBadgeClass(cat) {
   if (cat === "Molhos") return "badge-cat-molhos";
@@ -560,6 +809,7 @@ function deleteUserRecipe(id) {
   if (!confirm('Excluir esta receita? Essa ação não pode ser desfeita.')) return;
   userRecipes = userRecipes.filter(r => r.id !== id);
   saveUserRecipes();
+  deleteRecipeFromCloud(id);
   rebuildRecipes();
   cart.delete(id); saveCart();
   delete checked[id]; saveChecked();
@@ -657,6 +907,7 @@ function saveRecipeForm(e) {
   };
   userRecipes.push(recipe);
   saveUserRecipes();
+  pushRecipes([recipe]);
   rebuildRecipes();
   closeForm();
   renderTabs(); render();
@@ -690,6 +941,7 @@ function importRecipes(event) {
       });
       userRecipes = userRecipes.concat(data);
       saveUserRecipes();
+      pushRecipes(data);
       rebuildRecipes();
       renderTabs(); render();
       alert(`${data.length} receita(s) importada(s) com sucesso!`);
@@ -730,8 +982,13 @@ if ('serviceWorker' in navigator) {
 document.getElementById('recipeOverlay').addEventListener('click', function(e) { if (e.target===this) closeRecipe(); });
 document.getElementById('cartOverlay').addEventListener('click', function(e) { if (e.target===this) closeCart(); });
 document.getElementById('formOverlay').addEventListener('click', function(e) { if (e.target===this) closeForm(); });
+document.getElementById('authOverlay').addEventListener('click', function(e) { if (e.target===this) closeAuth(); });
 
 renderTabs(); render(); updateFab();
+
+// A tela já apareceu com o cache local; a nuvem entra em seguida. O listener
+// espera o script do Supabase (carregado com defer) terminar de executar.
+document.addEventListener('DOMContentLoaded', () => { initSync(); });
 </script>
 </body>
 </html>
