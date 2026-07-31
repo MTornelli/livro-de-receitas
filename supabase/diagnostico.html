@@ -87,6 +87,23 @@ async function run() {
     return add('bad', 'Credenciais não preenchidas', 'As constantes no topo do <code>index.html</code> estão vazias.',
       'Preencha <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> com os dados de Project Settings → API.');
   }
+  // O painel mostra também o endereço da API REST, e copiar o errado gera um
+  // erro de caminho inválido que não parece ter nada a ver com a URL.
+  let origin = '';
+  try {
+    const u = new URL(cfg.url.trim());
+    origin = u.origin;
+    if (u.pathname && u.pathname !== '/') {
+      add('bad', 'A URL do projeto tem caminho a mais',
+        `Está <code>${cfg.url}</code> — o trecho <code>${u.pathname}</code> está sobrando.`,
+        `Troque por <code>${u.origin}</code>. No painel, use o <strong>Project URL</strong> de Settings → API, não o endereço da API REST. A biblioteca acrescenta <code>/rest/v1</code> sozinha, então deixar isso aí gera <code>Invalid path specified in request URL</code>.`);
+      return;
+    }
+  } catch (e) {
+    return add('bad', 'A URL do projeto é inválida', `<code>${cfg.url}</code>`,
+      'Deve ter a forma <code>https://xxxxx.supabase.co</code>, sem nada depois.');
+  }
+  cfg.url = origin;
   add('ok', 'Credenciais encontradas no index.html', `Projeto: <code>${cfg.url}</code>`);
 
   // 2 ── a chave é mesmo a anon?
@@ -123,7 +140,11 @@ async function run() {
       return add('bad', 'A tabela recipes não existe', `<code>${msg}</code>`,
         'Rode o <code>supabase/schema.sql</code> inteiro no SQL Editor do projeto.');
     }
-    if (/JWT|apikey|Invalid/i.test(msg)) {
+    if (/invalid path|not found/i.test(msg)) {
+      return add('bad', 'O Supabase não reconheceu o caminho da requisição', `<code>${msg}</code>`,
+        `Quase sempre é sobra na <code>SUPABASE_URL</code>. Ela deve ser só <code>${cfg.url}</code>, sem <code>/rest/v1</code> nem barra no fim.`);
+    }
+    if (/JWT|apikey|API key|unauthorized|invalid.*(key|token)/i.test(msg)) {
       return add('bad', 'Credenciais recusadas pelo Supabase', `<code>${msg}</code>`,
         'Confira se a URL e a chave são do mesmo projeto.');
     }
